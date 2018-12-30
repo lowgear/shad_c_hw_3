@@ -1,7 +1,16 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#include "utils/vector.h"
+
 struct Expression;
+
+enum OpRetCode {
+    Ok,
+    ArgNumberMismatch,
+    ArgTypeMismatch,
+    DBZ
+};
 
 enum Type {
     Func,
@@ -16,13 +25,11 @@ enum ExpType {
     Var
 };
 
-struct Call {
-    struct Expression *args;
-};
+DEF_VECTOR(CallArgV, struct Expression *);
 
 struct Expression {
     union {
-        struct Call *call;
+        struct CallArgV *callArgV;
         struct Object *object;
         size_t varId;
     };
@@ -30,7 +37,6 @@ struct Expression {
 };
 
 struct Function {
-    char *name;
     size_t argc;
     struct Expression *expression;
 };
@@ -38,10 +44,6 @@ struct Function {
 struct Pair {
     struct Object *first;
     struct Object *second;
-};
-
-struct Call {
-    struct Object *args;
 };
 
 struct Object {
@@ -53,8 +55,45 @@ struct Object {
     };
 };
 
-struct Object *RunCall(struct Call *call) {
+struct LazyExpr {
+    struct Expression *expression;
+    struct ArgV *argv;
+    struct Object *value;
+};
 
+enum OpRetCode EvalExpr(struct Expression *expression, struct ArgV *argv, struct Object *out);
+
+enum OpRetCode GetLazyExprVal(struct LazyExpr *lazyExpr, struct Object *out) {
+    if (lazyExpr->value == NULL) {
+        enum OpRetCode rc = EvalExpr(lazyExpr->expression, lazyExpr->argv, lazyExpr->value);
+        if (rc != Ok)
+            return rc;
+    }
+    out = lazyExpr->value;
+    return Ok;
+}
+
+DEF_VECTOR(ArgV, struct LazyExpr*);
+
+enum OpRetCode Invoke(struct Function *function, struct ArgV *argv, struct Object *out) {
+
+}
+
+enum OpRetCode EvalExpr(struct Expression *expression, struct ArgV *argv, struct Object *out) {
+    struct Object *func;
+    enum OpRetCode rc;
+    switch (expression->expType) {
+        case Call:
+            rc = EvalExpr(expression->callArgV->array[0], argv, func);
+            if (rc != Ok)
+                return rc;
+
+        case Const:
+            out = expression->object;
+            return Ok;
+        case Var:
+            return GetLazyExprVal(argv->array[expression->varId], out);
+    }
 }
 
 int main() {
