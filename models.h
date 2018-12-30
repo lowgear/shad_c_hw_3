@@ -28,7 +28,14 @@ enum ExpType {
     Var
 };
 
+enum FuncType {
+    UserDefined,
+    BuiltIn
+};
+
 DEF_VECTOR(CallArgV, struct Expression *);
+
+DEF_VECTOR(ArgNames, const char *)
 
 struct Expression {
     union {
@@ -39,9 +46,18 @@ struct Expression {
     enum ExpType expType;
 };
 
+struct ArgV;
+
 struct Function {
     size_t argc;
-    struct Expression *expression;
+
+    union {
+        struct Expression *expression;
+
+        enum OpRetCode (*builtin)(struct ArgV *argv, struct ArgNames *argNames, struct Object **out);
+    };
+
+    enum FuncType funcType;
 };
 
 struct Pair {
@@ -54,7 +70,7 @@ struct Object {
     union {
         struct Function *func;
         int32_t integer;
-        struct Pair *pair;
+        struct Pair pair;
     };
 };
 
@@ -64,9 +80,4 @@ struct LazyExpr {
     struct Object *value;
 };
 
-struct Arg {
-    const char *name;
-    struct LazyExpr lazyExpr;
-};
-
-DEF_VECTOR(ArgV, struct Arg);
+DEF_VECTOR(ArgV, struct LazyExpr);

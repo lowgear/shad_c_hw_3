@@ -1,8 +1,11 @@
 #include "evaluation.h"
 
-enum OpRetCode GetLazyExprVal(struct LazyExpr *lazyExpr, struct Object **out) {
+enum OpRetCode GetLazyExprVal(
+        struct LazyExpr *lazyExpr,
+        struct ArgNames *argNames,
+        struct Object **out) {
     if (lazyExpr->value == NULL) {
-        enum OpRetCode rc = EvalExpr(lazyExpr->expression, lazyExpr->argv, &lazyExpr->value);
+        enum OpRetCode rc = EvalExpr(lazyExpr->expression, lazyExpr->argv, argNames, &lazyExpr->value);
         if (rc != Ok)
             return rc;
     }
@@ -10,10 +13,14 @@ enum OpRetCode GetLazyExprVal(struct LazyExpr *lazyExpr, struct Object **out) {
     return Ok;
 }
 
-enum OpRetCode EvalCall(struct CallArgV *callArgV, struct ArgV *argv, struct Object **out) {
+enum OpRetCode EvalCall(
+        struct CallArgV *callArgV,
+        struct ArgV *argv,
+        struct ArgNames *argNames,
+        struct Object **out) {
     struct Object *func;
 
-    enum OpRetCode rc = EvalExpr(callArgV->array[0], argv, &func);
+    enum OpRetCode rc = EvalExpr(callArgV->array[0], argv, argNames, &func);
     if (rc != Ok)
         return rc;
     if (func->type != Func)
@@ -27,31 +34,34 @@ enum OpRetCode EvalCall(struct CallArgV *callArgV, struct ArgV *argv, struct Obj
     for (size_t i = 0; i < paramsNum; ++i) {
         struct Expression *const curExpr = callArgV->array[i + 1];
         innerArgV->array[i] =
-                (struct Arg) {
-                        .lazyExpr = (struct LazyExpr) {
-                                .expression = curExpr,
-                                .argv = argv,
-                                .value = NULL
-                        },
-                        .name = curExpr->var
+                (struct LazyExpr) {
+                        .expression = curExpr,
+                        .argv = argv,
+                        .value = NULL
                 };
     }
-    rc = EvalExpr(func->func->expression, innerArgV, out);
+    rc = func->func->funcType == BuiltIn
+         ? func->func->builtin(innerArgV, out)
+         : EvalExpr(func->func->expression, innerArgV, argNames, out);
     free(innerArgV);
     return rc;
 }
 
-enum OpRetCode EvalExpr(struct Expression *expression, struct ArgV *argv, struct Object **out) {
+enum OpRetCode EvalExpr(
+        struct Expression *expression,
+        struct ArgV *argv,
+        struct ArgNames *argNames,
+        struct Object **out) {
     switch (expression->expType) {
         case Call:
-            return EvalCall(expression->paramsV, argv, out);
+            return EvalCall(expression->paramsV, argv, argNames, out);
         case Const:
             *out = expression->object;
             return Ok;
         case Var:
             for (size_t i = 0; i < argv->size; ++i) {
-                if (strcmp(argv->array[i].name, expression->var) == 0) {
-                    return GetLazyExprVal(&argv->array[i].lazyExpr, out);
+                if (strcmp(argNames->array[i], expression->var) == 0) {
+                    return GetLazyExprVal(&argv->array[i], argNames, out);
                 }
             }
             return UndefinedArg;
