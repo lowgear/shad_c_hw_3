@@ -6,17 +6,19 @@
 
 enum OpRetCode GetLazyExprVal(
         struct LazyExpr *lazyExpr,
-        struct ArgNames *argNames,
-        struct Object **out);
+        struct State *state,
+        const struct Object **out);
 
 enum OpRetCode EvalCall(
         struct CallArgV *callArgV,
         struct ArgV *argv,
-        struct ArgNames *argNames,
-        struct Object **out);
+        const struct ArgNames *argNames,
+        struct State *state,
+        const struct Object **out);
 
 enum OpRetCode EvalExpr(
-        struct Expression *expression,
+        const struct Expression *expression,
         struct ArgV *argv,
-        struct ArgNames *argNames,
-        struct Object **out);
+        const struct ArgNames *argNames,
+        struct State *state,
+        const struct Object **out);

@@ -12,7 +12,9 @@ enum OpRetCode {
     ArgTypeMismatch,
     AllocationFailure,
     UndefinedArg,
-    DBZ
+    IdentifierRedefinition,
+    SyntaxViolation,
+    DBZ,
 };
 
 enum Type {
@@ -33,9 +35,9 @@ enum FuncType {
     BuiltIn
 };
 
-DEF_VECTOR(CallArgV, struct Expression *);
+DEF_ARRAY(CallArgV, struct Expression *);
 
-DEF_VECTOR(ArgNames, const char *)
+DEF_ARRAY(ArgNames, const char *)
 
 struct Expression {
     union {
@@ -48,36 +50,61 @@ struct Expression {
 
 struct ArgV;
 
+struct State;
+
 struct Function {
-    size_t argc;
-
     union {
-        struct Expression *expression;
+        const struct Expression *expression;
 
-        enum OpRetCode (*builtin)(struct ArgV *argv, struct ArgNames *argNames, struct Object **out);
+        enum OpRetCode (*builtin)(
+                struct ArgV *argv,
+                struct State *state,
+                const struct Object **out);
     };
+
+    const char *name;
+
+    uint8_t argc;
 
     enum FuncType funcType;
 };
 
 struct Pair {
-    struct Object *first;
-    struct Object *second;
+    const struct Object *first;
+    const struct Object *second;
 };
 
 struct Object {
-    enum Type type;
     union {
-        struct Function *func;
+        struct Function func;
         int32_t integer;
         struct Pair pair;
     };
+    enum Type type;
 };
 
 struct LazyExpr {
-    struct Expression *expression;
+    const struct Expression *expression;
     struct ArgV *argv;
-    struct Object *value;
+    const struct ArgNames *argNames;
+    const struct Object *value;
 };
 
-DEF_VECTOR(ArgV, struct LazyExpr);
+DEF_ARRAY(ArgV, struct LazyExpr);
+
+struct IdentifierValuePair {
+    const char *identifier;
+    const struct Object *value;
+};
+
+DEF_VECTOR(IdentifierList, struct IdentifierValuePair)
+
+struct State {
+    struct IdentifierList *identifiers;
+};
+
+struct ArgV emptyArgV;
+
+struct ArgNames emptyArgNames;
+
+void FreeExpr(const struct Expression *expression);

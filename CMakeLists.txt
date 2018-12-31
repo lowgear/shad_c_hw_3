@@ -3,4 +3,11 @@ project(shad_c_hw_3 C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(shad_c_hw_3 main.c evaluation.c builtins.c)
+add_executable(shad_c_hw_3
+        main.c
+        evaluation.c
+        builtins.c
+        lisp_io.c
+        models.c
+        utils/iotools.c
+        utils/strtools.c)
