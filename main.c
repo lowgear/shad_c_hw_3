@@ -6,42 +6,56 @@
 #include "evaluation.h"
 #include "builtins.h"
 #include "lisp_io.h"
+#include "utils/error_check_tools.h"
 
-#include <stdio.h>
-
+enum ExitCodes {
+    Fine = 0,
+    WrongArgNum,
+    FailedAlloc,
+    FailOpen,
+    FailSyntax,
+    FailRuntime,
+};
 
 int main(int argc, char *argv[]) {
-
-//    int n = 0;
-//    char s[100];
-//    scanf("%*s%n%s", &n, s);
-//    printf("%d\n%s", n, s);
-//
-//    return 0;
-
-    if (argc != 2)
-        return 1;
-    FILE *f = fopen(argv[1], "r");
+    enum ExitCodes rv = Fine;
+    CHECK(argc == 2, "expected 1 argument", rv = WrongArgNum, exit);
 
     struct State state;
-    INIT_VEC(state.identifiers, 1, return 3);
-    PUSH_BACK_P(&state.identifiers, define, return 6);
+    CHECK(InitState(&state), "failed init state", rv = FailedAlloc, exit);
 
-    struct Expression *expr;
-    if (ReadExpression(f, &expr) != Ok)
-        return 2;
+    FILE *f;
+    char *const inFile = argv[1];
+    CHECK_F(f = fopen(inFile, "r"), "open", inFile, rv, FailOpen, freeState);
 
-    const struct Object *res;
-    if (EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res) != Ok)
-        return 4;
+    while (1) {
+        struct Expression *expr;
+        enum RetCode rc = ReadExpression(f, &expr);
+        if (rc == eOf)
+            break;
+        CHECK(rc == IoOk, "failed", rv = FailSyntax, freeExpr); // todo message
+        // todo io error
 
-    if (ReadExpression(f, &expr) != Ok)
-        return 2;
-    if (EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res) != Ok)
-        return 4;
+        struct Object *res;
+        enum OpRetCode orc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
+        CHECK(!(orc & RuntimeError), "runtime error", rv = FailRuntime, freeExpr);
+        CHECK(orc == Ok, "syntax error", rv = FailSyntax, freeExpr);
 
-    if (WriteObject(stdout, res) != IoOk)
-        return 5;
+        WriteObject(stdout, res);
+        printf("\n");
 
-    return 0;
+        FreeExpr(expr);
+        continue;
+
+        freeExpr:
+        FreeExpr(expr);
+        goto closeFile;
+    }
+
+    closeFile:
+    fclose(f);
+    freeState:
+    FreeState(&state);
+    exit:
+    return rv;
 }

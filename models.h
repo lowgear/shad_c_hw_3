@@ -1,24 +1,39 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "utils/vector.h"
 
 struct Expression;
+struct Object;
+struct Function;
+struct ArgV;
+struct State;
+struct Pair;
+DEF_ARRAY(ArgNames, const char *);
+DEF_ARRAY(CallParams, struct Expression *);
+
+typedef enum OpRetCode (*BuiltInFunc)(
+        struct ArgV *argv,
+        struct State *state,
+        struct Object **out);
 
 enum OpRetCode {
-    Ok,
-    ArgNumberMismatch,
-    ArgTypeMismatch,
-    AllocationFailure,
+    Ok = 0,
     UndefinedArg,
     IdentifierRedefinition,
     SyntaxViolation,
+    ArgNumberMismatch,
+    RuntimeError = 1 << 6,
+    ArgTypeMismatch = RuntimeError,
+    AllocationFailure,
     DBZ,
 };
 
 enum Type {
     Func,
+    BuiltInF,
     Int,
     Pair,
     Null,
@@ -31,52 +46,42 @@ enum ExpType {
 };
 
 enum FuncType {
-    UserDefined,
-    BuiltIn
+    BuiltIn,
+    UserDef
 };
-
-DEF_ARRAY(CallArgV, struct Expression *);
-
-DEF_ARRAY(ArgNames, const char *)
 
 struct Expression {
     union {
-        struct CallArgV *paramsV;
+        struct CallParams *paramsV;
         struct Object *object;
         const char *var;
     };
     enum ExpType expType;
 };
 
-struct ArgV;
-
-struct State;
+struct UserDefFunc {
+    struct ArgNames *head;
+    struct Expression *body;
+};
 
 struct Function {
     union {
-        const struct Expression *expression;
-
-        enum OpRetCode (*builtin)(
-                struct ArgV *argv,
-                struct State *state,
-                const struct Object **out);
+        struct UserDefFunc userDef;
+        BuiltInFunc builtIn;
     };
-
     const char *name;
-
+    enum FuncType type;
     uint8_t argc;
-
-    enum FuncType funcType;
 };
 
 struct Pair {
-    const struct Object *first;
-    const struct Object *second;
+    struct Object *first;
+    struct Object *second;
 };
 
 struct Object {
     union {
-        struct Function func;
+        struct Function *function;
         int32_t integer;
         struct Pair pair;
     };
@@ -84,27 +89,33 @@ struct Object {
 };
 
 struct LazyExpr {
-    const struct Expression *expression;
+    struct Expression *expression;
     struct ArgV *argv;
-    const struct ArgNames *argNames;
-    const struct Object *value;
+    struct ArgNames *argNames;
+    struct Object *value;
 };
 
 DEF_ARRAY(ArgV, struct LazyExpr);
 
 struct IdentifierValuePair {
     const char *identifier;
-    const struct Object *value;
+    struct Object *value;
 };
 
 DEF_VECTOR(IdentifierList, struct IdentifierValuePair)
+DEF_VECTOR(ObjectList, struct Object*)
 
 struct State {
+    struct IdentifierList *builtins;
     struct IdentifierList *identifiers;
+    struct ObjectList *objects;
 };
 
-struct ArgV emptyArgV;
+bool InitState(struct State *state);
 
+void FreeState(struct State *state);
+
+struct ArgV emptyArgV;
 struct ArgNames emptyArgNames;
 
-void FreeExpr(const struct Expression *expression);
+void FreeExpr(struct Expression *expression);

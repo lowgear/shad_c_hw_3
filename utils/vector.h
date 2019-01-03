@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdlib.h>
+#include <string.h>
 
 #define DEF_ARRAY(name, T) \
 struct name { \

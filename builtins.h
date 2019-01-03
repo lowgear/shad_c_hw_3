@@ -2,10 +2,24 @@
 
 #include "models.h"
 
-struct IdentifierValuePair define;
+struct IdentifierValuePair
+        define,
 
-//struct Function addition, subtraction, multiplication, division, modulo, less, greater, equal;
+        addition,
+        subtraction,
+        multiplication,
+        division,
+        modulo,
 
-struct IdentifierValuePair cons, car, cdr;
+        less,
+        greater,
+        equal,
 
-struct IdentifierValuePair _if;
+        cons,
+        car,
+        cdr,
+
+        _if;
+
+extern struct IdentifierValuePair *BUILTINS[];
+size_t BUILTINS_SIZE;

@@ -7,6 +7,8 @@
 #include "utils/iotools.h"
 #include "utils/strtools.h"
 
+#define CHECKFILEERROR if (ferror(file)) return IoError
+
 DEF_VECTOR(ExprList, struct Expression*)
 
 enum RetCode ReadCall(FILE *file, struct Expression **out) {
@@ -16,6 +18,7 @@ enum RetCode ReadCall(FILE *file, struct Expression **out) {
     while (1) {
         int n = 0;
         fscanf(file, " )%n", &n);
+        CHECKFILEERROR;
         if (n)
             break;
         struct Expression *curExp;
@@ -49,9 +52,13 @@ enum RetCode ReadCall(FILE *file, struct Expression **out) {
 }
 
 enum RetCode ReadExpression(FILE *file, struct Expression **out) {
+    fscanf(file, " ");
+    if (feof(file))
+        return eOf;
     enum RetCode rc = IoOk;
     int n = 0;
     fscanf(file, " (%n", &n);
+    CHECKFILEERROR;
     if (n) {
         return ReadCall(file, out);
     }
@@ -97,23 +104,28 @@ enum RetCode ReadExpression(FILE *file, struct Expression **out) {
 enum RetCode WriteObject(FILE *file, const struct Object *object) {
     switch (object->type) {
         case Func:
-            fprintf(file, "%s", object->func.name);
+            fprintf(file, "%s", object->function.name);
             break;
         case Int:
             fprintf(file, "%d", object->integer);
             break;
         case Pair:
             fprintf(file, "(cons ");
+            CHECKFILEERROR;
             enum RetCode rc = WriteObject(file, object->pair.first);
             if (rc != IoOk)
                 return rc;
             fprintf(file, " ");
-            rc = WriteObject(file, object->pair.first);
+            CHECKFILEERROR;
+            rc = WriteObject(file, object->pair.second);
+            if (rc != IoOk)
+                return rc;
             fprintf(file, ")");
             break;
         case Null:
             fprintf(file, "null");
             break;
     }
+    CHECKFILEERROR;
     return IoOk;
 }

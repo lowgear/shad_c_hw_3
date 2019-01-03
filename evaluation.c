@@ -1,9 +1,10 @@
 #include "evaluation.h"
+#import "impl_goodies.h"
 
 enum OpRetCode GetLazyExprVal(
         struct LazyExpr *lazyExpr,
         struct State *state,
-        const struct Object **out) {
+        struct Object **out) {
     if (lazyExpr->value == NULL) {
         enum OpRetCode rc = EvalExpr(lazyExpr->expression, lazyExpr->argv, lazyExpr->argNames, state, &lazyExpr->value);
         if (rc != Ok)
@@ -13,64 +14,83 @@ enum OpRetCode GetLazyExprVal(
     return Ok;
 }
 
-enum OpRetCode EvalCall(
-        struct CallArgV *callArgV,
-        struct ArgV *argv,
-        const struct ArgNames *argNames,
-        struct State *state,
-        const struct Object **out) {
-    const struct Object *func;
-
-    enum OpRetCode rc = EvalExpr(callArgV->array[0], argv, argNames, state, &func);
-    if (rc != Ok)
-        return rc;
-    if (func->type != Func)
-        return ArgTypeMismatch;
-    size_t paramsNum = callArgV->size;
-    if (paramsNum - 1 != func->func.argc)
-        return ArgNumberMismatch;
-    struct ArgV *innerArgV;
-    INIT_ARR(innerArgV, callArgV->size - 1, return AllocationFailure);
-    for (size_t i = 0; i < paramsNum - 1; ++i) {
-        struct Expression *const curExpr = callArgV->array[i + 1];
-        innerArgV->array[i] =
+enum OpRetCode MakeCallArgV(struct CallParams *callParams, struct ArgV *argv, struct ArgV **callArgV) {
+    INIT_ARR(*callArgV, callParams->size - 1, return AllocationFailure);
+    for (size_t i = 1; i < callParams->size; ++i) {
+        (*callArgV)->array[i] =
                 (struct LazyExpr) {
-                        .expression = curExpr,
+                        .expression = callParams->array[i + 1],
                         .argv = argv,
                         .value = NULL
                 };
     }
-    rc = func->func.funcType == BuiltIn
-         ? func->func.builtin(innerArgV, state, out)
-         : EvalExpr(func->func.expression, innerArgV, argNames, state, out);
-    free(innerArgV);
+    return Ok;
+}
+
+enum OpRetCode EvalCall(
+        struct CallParams *callParams,
+        struct ArgV *argv,
+        struct State *state,
+        struct Object **out) {
+    if (callParams->size < 1)
+        return SyntaxViolation;
+
+    enum OpRetCode rc;
+    GETARGT(func, 0, Func);
+
+    if (callParams->size - 1 != func->function.argc)
+        return ArgNumberMismatch;
+
+    struct ArgV *callArgV;
+    rc = MakeCallArgV(callParams, argv, &callArgV);
+    if (rc != Ok)
+        return rc;
+    rc = func->function.type == BuiltIn
+         ? func->function.builtIn(callArgV, state, out)
+         : EvalExpr(func->function.userDef->body, callArgV, func->function.userDef->head, state, out);
+    free(callArgV);
     return rc;
 }
 
-enum OpRetCode EvalExpr(
-        const struct Expression *expression,
+enum OpRetCode EvalVar(
+        const char *name,
         struct ArgV *argv,
-        const struct ArgNames *argNames,
+        struct ArgNames *argNames,
         struct State *state,
-        const struct Object **out) {
+        struct Object **out) {
+    for (size_t i = 0; i < argv->size; ++i) {
+        if (strcmp(name, argNames->array[i]) == 0) {
+            return GetLazyExprVal(&argv->array[i], state, out);
+        }
+    }
+    for (size_t i = 0; i < CNT(state->builtins); ++i) {
+        if (strcmp(name, ID(state->builtins, i).identifier) == 0) {
+            *out = ID(state->builtins, i).value;
+            return Ok;
+        }
+    }
+    for (size_t i = 0; i < CNT(state->identifiers); ++i) {
+        if (strcmp(name, ID(state->identifiers, i).identifier) == 0) {
+            *out = ID(state->identifiers, i).value;
+            return Ok;
+        }
+    }
+    return UndefinedArg;
+}
+
+enum OpRetCode EvalExpr(
+        struct Expression *expression,
+        struct ArgV *argv,
+        struct ArgNames *argNames,
+        struct State *state,
+        struct Object **out) {
     switch (expression->expType) {
         case Call:
-            return EvalCall(expression->paramsV, argv, argNames, state, out);
+            return EvalCall(expression->paramsV, argv, state, out);
         case Const:
             *out = expression->object;
             return Ok;
         case Var:
-            for (size_t i = 0; i < argv->size; ++i) {
-                if (strcmp(argNames->array[i], expression->var) == 0) {
-                    return GetLazyExprVal(&argv->array[i], state, out);
-                }
-            }
-            for (size_t i = 0; i < state->identifiers->cnt; ++i) {
-                if (strcmp(ID(state->identifiers, i).identifier, expression->var) == 0) {
-                    *out = ID(state->identifiers, i).value;
-                    return Ok;
-                }
-            }
-            return UndefinedArg;
+            return EvalVar(expression->var, argv, argNames, state, out);
     }
 }

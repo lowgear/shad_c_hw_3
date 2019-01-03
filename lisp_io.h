@@ -6,7 +6,9 @@
 
 enum RetCode {
     IoOk,
-    AllocFail
+    AllocFail,
+    eOf,
+    IoError,
 };
 
 enum RetCode ReadExpression(FILE *file, struct Expression **out);
