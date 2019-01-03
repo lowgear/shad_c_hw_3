@@ -19,7 +19,9 @@ struct IdentifierValuePair
         car,
         cdr,
 
-        _if;
+        _if,
+
+        nul;
 
 extern struct IdentifierValuePair *BUILTINS[];
 size_t BUILTINS_SIZE;

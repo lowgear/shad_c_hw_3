@@ -67,7 +67,7 @@ enum RetCode ReadExpression(FILE *file, struct Expression **out) {
     char *str = malloc(sizeof(char) * (tokenLen + 1));
     if (str == NULL)
         return AllocFail;
-    fscanf(file, "%[^ ()]", str);
+    fscanf(file, "%[^\t\n\v\f\r ()]", str);
     // todo
     int32_t value;
     *out = NEW(struct Expression);
@@ -104,7 +104,7 @@ enum RetCode ReadExpression(FILE *file, struct Expression **out) {
 enum RetCode WriteObject(FILE *file, const struct Object *object) {
     switch (object->type) {
         case Func:
-            fprintf(file, "%s", object->function.name);
+            fprintf(file, "%s", object->function->name);
             break;
         case Int:
             fprintf(file, "%d", object->integer);

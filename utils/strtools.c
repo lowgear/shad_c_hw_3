@@ -9,7 +9,8 @@ bool ParseInt32(char *str, int32_t *out) {
         return false;
     int64_t res = 0;
     bool neg = (str[0] == '-');
-    if (!isdigit(str[0]) && str[0] != '-' && str[0] != '+')
+    if (!(isdigit(str[0])
+          || ((str[0] == '-' || str[0] == '+') && len > 1)))
         return false;
     for (size_t i = (isdigit(str[0]) ? 0 : 1); i < len; ++i) {
         if (!isdigit(str[i]))

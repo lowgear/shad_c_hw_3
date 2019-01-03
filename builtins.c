@@ -20,7 +20,8 @@ struct IdentifierValuePair *BUILTINS[] = {
         &cons,
         &car,
         &cdr,
-        &_if};
+        &_if,
+        &nul};
 
 size_t BUILTINS_SIZE = sizeof(BUILTINS) / sizeof(BUILTINS[0]);
 
@@ -52,7 +53,7 @@ BUILTIN_DEF(_if, if, 3) {
     enum OpRetCode rc;
     GETARGT(pred, 0, Int)
 
-    return GetLazyExprVal(&argv->array[pred ? 1 : 2], state, out);
+    return GetLazyExprVal(&argv->array[pred->integer ? 1 : 2], state, out);
 }
 
 BUILTIN_DEF(cons, cons, 2) {
@@ -97,7 +98,7 @@ struct Function function_func = {
         .builtIn = function_impl,
         .argc = 0
 };
-struct Object function = {
+struct Object badFunc = {
         .type = Func,
         .function = &function_func
 };
@@ -176,7 +177,7 @@ BUILTIN_DEF(define, define, 2) {
     // finish body free prevent
     body->expType = Const;
 
-    *out = func;
+    *out = &badFunc;
 
     return Ok;
 
@@ -263,3 +264,11 @@ CMPOP(less, <, <)
 CMPOP(greater, >, >)
 
 CMPOP(equal, =, ==)
+
+struct Object NullObject = {
+        .type = Null
+};
+struct IdentifierValuePair nul = {
+        .identifier = "null",
+        .value = &NullObject
+};

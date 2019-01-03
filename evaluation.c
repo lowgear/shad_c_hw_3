@@ -1,5 +1,4 @@
 #include "evaluation.h"
-#import "impl_goodies.h"
 
 enum OpRetCode GetLazyExprVal(
         struct LazyExpr *lazyExpr,
@@ -14,13 +13,15 @@ enum OpRetCode GetLazyExprVal(
     return Ok;
 }
 
-enum OpRetCode MakeCallArgV(struct CallParams *callParams, struct ArgV *argv, struct ArgV **callArgV) {
+enum OpRetCode
+MakeCallArgV(struct CallParams *callParams, struct ArgV *argv, struct ArgNames *argNames, struct ArgV **callArgV) {
     INIT_ARR(*callArgV, callParams->size - 1, return AllocationFailure);
     for (size_t i = 1; i < callParams->size; ++i) {
-        (*callArgV)->array[i] =
+        (*callArgV)->array[i - 1] =
                 (struct LazyExpr) {
-                        .expression = callParams->array[i + 1],
+                        .expression = callParams->array[i],
                         .argv = argv,
+                        .argNames = argNames,
                         .value = NULL
                 };
     }
@@ -30,24 +31,30 @@ enum OpRetCode MakeCallArgV(struct CallParams *callParams, struct ArgV *argv, st
 enum OpRetCode EvalCall(
         struct CallParams *callParams,
         struct ArgV *argv,
+        struct ArgNames *argNames,
         struct State *state,
         struct Object **out) {
     if (callParams->size < 1)
         return SyntaxViolation;
 
     enum OpRetCode rc;
-    GETARGT(func, 0, Func);
+    struct Object *func;
+    rc = EvalExpr(ID(callParams, 0), argv, argNames, state, &func);
+    if (rc != Ok)
+        return rc;
+    if (func->type != Func)
+        return ArgTypeMismatch;
 
-    if (callParams->size - 1 != func->function.argc)
+    if (callParams->size - 1 != func->function->argc)
         return ArgNumberMismatch;
 
     struct ArgV *callArgV;
-    rc = MakeCallArgV(callParams, argv, &callArgV);
+    rc = MakeCallArgV(callParams, argv, argNames, &callArgV);
     if (rc != Ok)
         return rc;
-    rc = func->function.type == BuiltIn
-         ? func->function.builtIn(callArgV, state, out)
-         : EvalExpr(func->function.userDef->body, callArgV, func->function.userDef->head, state, out);
+    rc = func->function->type == BuiltIn
+         ? func->function->builtIn(callArgV, state, out)
+         : EvalExpr(func->function->userDef.body, callArgV, func->function->userDef.head, state, out);
     free(callArgV);
     return rc;
 }
@@ -58,15 +65,15 @@ enum OpRetCode EvalVar(
         struct ArgNames *argNames,
         struct State *state,
         struct Object **out) {
-    for (size_t i = 0; i < argv->size; ++i) {
-        if (strcmp(name, argNames->array[i]) == 0) {
-            return GetLazyExprVal(&argv->array[i], state, out);
-        }
-    }
     for (size_t i = 0; i < CNT(state->builtins); ++i) {
         if (strcmp(name, ID(state->builtins, i).identifier) == 0) {
             *out = ID(state->builtins, i).value;
             return Ok;
+        }
+    }
+    for (size_t i = 0; i < argv->size; ++i) {
+        if (strcmp(name, argNames->array[i]) == 0) {
+            return GetLazyExprVal(&argv->array[i], state, out);
         }
     }
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
@@ -86,7 +93,7 @@ enum OpRetCode EvalExpr(
         struct Object **out) {
     switch (expression->expType) {
         case Call:
-            return EvalCall(expression->paramsV, argv, state, out);
+            return EvalCall(expression->paramsV, argv, argNames, state, out);
         case Const:
             *out = expression->object;
             return Ok;
