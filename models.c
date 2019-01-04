@@ -8,7 +8,7 @@ struct ArgV emptyArgV = {.size = 0};
 struct ArgNames emptyArgNames = {.size = 0};
 
 void FreeExpr(struct Expression *expression) {
-    return;
+    FREEREF(expression);
     switch (expression->expType) {
         case Call:
             for (size_t i = 0; i < expression->paramsV->size; ++i) {
@@ -17,16 +17,12 @@ void FreeExpr(struct Expression *expression) {
             FREE_V(expression->paramsV);
             break;
         case Const:
-            free(expression->object);
+            FreeObj(expression->object);
             break;
         case Var:
             free(expression->var);
             break;
     }
-    if (expression->expType == Call) {
-
-    }
-    free(expression);
 }
 
 bool InitState(struct State *state) {
@@ -35,12 +31,9 @@ bool InitState(struct State *state) {
         PUSH_BACK_P(&state->builtins, *BUILTINS[i], goto freeBuiltins);
     }
     INIT_VEC(state->identifiers, 1, goto freeBuiltins);
-    INIT_VEC(state->objects, 1, goto freeIdentifiers);
 
     return true;
 
-    freeIdentifiers:
-    free(state->identifiers);
     freeBuiltins:
     free(state->builtins);
     fail:
@@ -48,28 +41,24 @@ bool InitState(struct State *state) {
 }
 
 void FreeState(struct State *state) {
-    return;
-    // todo free objects themselves
-    for (size_t i = 0; i < CNT(state->objects); ++i) {
-        free(ID(state->objects, i));
-    }
-    free(state->objects);
-
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
         FreeObj(ID(state->identifiers, i).value);
+        free(ID(state->identifiers, i).identifier);
     }
-    free(state->identifiers);
+    FREE_V(state->identifiers);
 
-    free(state->builtins);
+    FREE_V(state->builtins);
 }
 
 void FreeObj(struct Object *object) {
-    return;
+    FREEREF(object);
+
     switch (object->type) {
         case Func:
-            if (object->function->type == BuiltIn)
+            if (!object->function->isUserDefined)
                 return;
             FreeExpr(object->function->userDef.body);
+
             for (size_t i = 0; i < SIZE(object->function->userDef.head); ++i) {
                 free(ID(object->function->userDef.head, i));
             }
@@ -80,9 +69,26 @@ void FreeObj(struct Object *object) {
         case Int:
             break;
         case Pair:
+            FreeLazyExpr(object->pair->first);
+            FreeLazyExpr(object->pair->second);
             break;
         case Null:
             return;
     }
     free(object);
+}
+
+void FreeLazyExpr(struct LazyExpr *lazyExpr) {
+    FREEREF(lazyExpr);
+
+    FreeObj(lazyExpr->value);
+    FreeExpr(lazyExpr->expression);
+    for (size_t i = 0; i < SIZE(lazyExpr->argNames); ++i) {
+        free(ID(lazyExpr->argNames, i));
+    }
+    FREE_V(lazyExpr->argNames);
+    for (size_t i = 0; i < SIZE(lazyExpr->argv); ++i) {
+        FreeLazyExpr(ID(lazyExpr->argv, i));
+    }
+    FREE_V(lazyExpr->argv);
 }

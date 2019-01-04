@@ -30,8 +30,8 @@ size_t BUILTINS_SIZE = sizeof(BUILTINS) / sizeof(BUILTINS[0]);
 #define BUILTIN_DEF(n, idnt, ac) \
 IMPL_HEAD(n); \
 struct Function n##_func = {\
-        .type = BuiltIn, \
         .builtIn = n##_impl, \
+        .isUserDefined = NULL, \
         .argc = ac, \
         .name = #idnt \
 }; \
@@ -46,11 +46,10 @@ struct IdentifierValuePair n = { \
 IMPL_HEAD(n)
 
 #define ALLOCRES \
-struct Object *res = NEW(struct Object); \
-if (res == NULL) return AllocationFailure;
+struct Object *res; \
+NEWSMRT(res, struct Object, return AllocationFailure);
 
 #define PROPER_END do { \
-    PUSH_BACK_P(&(state->objects), res, goto freeRes); \
     *out = res; \
     return Ok; \
     \
@@ -68,12 +67,13 @@ BUILTIN_DEF(_if, if, 3) {
 
 BUILTIN_DEF(cons, cons, 2) {
     ALLOCRES
+    struct Pair *pair;
+    TRY_NEW(pair, struct Pair, goto freeRes);
+    CPYREF(argv->array[0], pair->first);
+    CPYREF(argv->array[1], pair->second);
     *res = (struct Object) {
             .type = Pair,
-            .pair = {
-                    .first = argv->array[0],
-                    .second = argv->array[1]
-            }
+            .pair = pair
     };
     PROPER_END;
 }
@@ -96,13 +96,14 @@ IMPL_HEAD(function) {
 
 struct Function function_func = {
         .name = "function",
-        .type = BuiltIn,
+        .isUserDefined = NULL,
         .builtIn = function_impl,
-        .argc = 0
+        .argc = 0,
 };
 struct Object badFunc = {
         .type = Func,
-        .function = &function_func
+        .function = &function_func,
+        .refCnt = 1;
 };
 
 enum OpRetCode CheckHead(struct Expression *header) {
@@ -146,11 +147,6 @@ BUILTIN_DEF(define, define, 2) {
         ID(argNames, i - 1) = ID(header->paramsV, i)->var;
     }
 
-    // prevent body free
-    struct Expression *trueBody;
-    TRY_NEW(trueBody, struct Expression, goto freeArgNames);
-    *trueBody = *body;
-
     struct Function *function;
     TRY_NEW(function, struct Function, goto freeTrueBody);
     *function = (struct Function) {
@@ -158,7 +154,7 @@ BUILTIN_DEF(define, define, 2) {
             .type = UserDef,
             .userDef = (struct UserDefFunc) {
                     .head = argNames,
-                    .body = trueBody
+                    .body = body
             },
             .argc = argc
     };

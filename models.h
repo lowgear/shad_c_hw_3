@@ -19,7 +19,7 @@
     ++REFCNT(src); \
 } while (0)
 
-#define FREEREF(t) if (--REFCNT(t) == 0) free(t);
+#define FREEREF(t) if (REFCNT(t) != 0 || (--REFCNT(t) != 0)) return
 
 struct Expression;
 struct Object;
@@ -27,6 +27,7 @@ struct Function;
 struct ArgV;
 struct State;
 struct Pair;
+struct LazyExpr;
 DEF_ARRAY(ArgNames, char *);
 DEF_ARRAY(CallParams, struct Expression *);
 
@@ -87,7 +88,6 @@ struct Function {
         };
     };
     char *name;
-    REFCNT_DEF;
     uint8_t argc;
 };
 
@@ -137,5 +137,7 @@ bool InitState(struct State *state);
 void FreeState(struct State *state);
 void FreeExpr(struct Expression *expression);
 void FreeObj(struct Object *object);
+
+void FreeLazyExpr(struct LazyExpr *lazyExpr);
 
 #undef REFCNT_DEF
