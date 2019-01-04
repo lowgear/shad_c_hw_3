@@ -4,14 +4,6 @@
 
 #include "models.h"
 
-enum RetCode {
-    IoOk,
-    AllocFail,
-    eOf,
-    IoError,
-    UnknownErr
-};
+enum OpRetCode ReadExpression(FILE *file, struct Expression **out);
 
-enum RetCode ReadExpression(FILE *file, struct Expression **out);
-
-enum RetCode WriteObject(FILE *file, const struct Object *object);
+enum OpRetCode WriteObject(FILE *file, struct State *state, const struct Object *object);

@@ -2,28 +2,31 @@
 #include <stdlib.h>
 
 #include "lisp_io.h"
+#include "evaluation.h"
 #include "utils/vector.h"
 #include "utils/goodies.h"
 #include "utils/iotools.h"
 #include "utils/strtools.h"
 
-#define CHECKFILEERROR if (ferror(file)) return IoError
+#define CHK_FERROR(onFail) if (ferror(file)) onFail;
 
 DEF_VECTOR(ExprList, struct Expression*)
 
-enum RetCode ReadCall(FILE *file, struct Expression **out) {
-    enum RetCode rc = IoOk;
+enum OpRetCode ReadCall(FILE *file, struct Expression **out) {
+    enum OpRetCode rc = Ok;
     struct ExprList *exprList;
-    INIT_VEC(exprList, 1, return AllocFail);
+    INIT_VEC(exprList, 1, return AllocationFailure);
     while (1) {
+        // check for end of call
         int n = 0;
         fscanf(file, " )%n", &n);
-        CHECKFILEERROR;
+        CHK_FERROR(return IoError);
         if (n)
             break;
+
         struct Expression *curExp;
         rc = ReadExpression(file, &curExp);
-        if (rc != IoOk)
+        if (rc != Ok)
             goto freeExprList;
         PUSH_BACK_P(&exprList, curExp, goto freeCurExpr);
         continue;
@@ -33,76 +36,92 @@ enum RetCode ReadCall(FILE *file, struct Expression **out) {
         goto freeExprList;
     }
 
-    struct Expression *res = NEW(struct Expression);
+    struct Expression *res;
+    NEWSMRT(res, struct Expression, goto freeExprList);
     res->expType = Call;
-    INIT_ARR(res->paramsV, exprList->cnt, goto freeCurExpr);
+    INIT_ARR(res->paramsV, CNT(exprList), goto freeCurExpr);
     for (size_t i = 0; i < exprList->cnt; ++i) {
         res->paramsV->array[i] = ID(exprList, i);
     }
     free(exprList);
     *out = res;
-    return IoOk;
+    return Ok;
 
     freeExprList:
-    for (size_t i = 0; i < exprList->cnt; ++i) {
+    for (size_t i = 0; i < CNT(exprList); ++i) {
         FreeExpr(ID(exprList, i));
     }
     free(exprList);
     return rc;
 }
 
-enum RetCode ReadExpression(FILE *file, struct Expression **out) {
+enum OpRetCode HandleReadInt(char *str, int32_t value, struct Expression **out) {
+    **out = (struct Expression) {
+            .expType = Const,
+    };
+    NEWSMRT((*out)->object, struct Object, goto freeOut);
+    *(*out)->object = (struct Object) {
+            .type = Int,
+            .integer = value
+    };
+    free(str);
+    return Ok;
+
+    freeOut:
+    free(*out);
+    free(str);
+
+    return AllocationFailure;
+}
+
+enum OpRetCode HandleReadVar(char *str, struct Expression **out) {
+    **out = (struct Expression) {
+            .expType = Var,
+            .var = str
+    };
+    return Ok;
+}
+
+enum OpRetCode ReadExpression(FILE *file, struct Expression **out) {
+    // check for EOF
     fscanf(file, " ");
     if (feof(file))
         return eOf;
-    enum RetCode rc = IoOk;
+    CHK_FERROR(return IoError);
+
+    enum OpRetCode rc = Ok;
+    // check if next expression is Call and skip open bracket
     int n = 0;
     fscanf(file, " (%n", &n);
-    CHECKFILEERROR;
+    CHK_FERROR(return IoError);
     if (n) {
         return ReadCall(file, out);
     }
 
     size_t tokenLen = NextStrLen(file);
-    char *str = malloc(sizeof(char) * (tokenLen + 1));
+    CHK_FERROR(return IoError);
+    char *str = NEWARR(char, tokenLen + 1);
     if (str == NULL)
-        return AllocFail;
+        return AllocationFailure;
+
+    // read token without whitespaces or brackets
     fscanf(file, "%[^\t\n\v\f\r ()]", str);
-    // todo
+    CHK_FERROR(goto freeStr);
+
+    NEWSMRT(*out, struct Expression, goto freeStr);
+
     int32_t value;
-    *out = NEW(struct Expression);
-    if (*out == NULL)
-        goto freeStr;
     if (ParseInt32(str, &value)) {
-        **out = (struct Expression) {
-                .expType = Const,
-                .object = NEW(struct Object)
-        };
-        if ((*out)->object == NULL)
-            goto freeOut;
-        *(*out)->object = (struct Object) {
-                .type = Int,
-                .integer = value
-        };
-        free(str);
-        return IoOk;
+        return HandleReadInt(str, value, out);
     }
+    return HandleReadVar(str, out);
 
-    **out = (struct Expression) {
-            .expType = Var,
-            .var = str
-    };
-
-    return IoOk;
-
-    freeOut:
-    free(*out);
     freeStr:
     free(str);
     return rc;
 }
 
-enum RetCode WriteObject(FILE *file, const struct Object *object) {
+enum OpRetCode WriteObject(FILE *file, struct State *state, const struct Object *object) {
     switch (object->type) {
         case Func:
             fprintf(file, "%s", object->function->name);
@@ -112,15 +131,25 @@ enum RetCode WriteObject(FILE *file, const struct Object *object) {
             break;
         case Pair:
             fprintf(file, "(cons ");
-            CHECKFILEERROR;
-            enum RetCode rc = WriteObject(file, object->pair.first);
-            if (rc != IoOk)
-                return rc;
+            CHK_FERROR(return IoError);
+            struct Object *out;
+            enum OpRetCode rc;
+
+#define HANDLE_PART(part) do { \
+                rc = GetLazyExprVal(object->pair->part, state, &out); \
+                if (rc != Ok) return rc; \
+                rc = WriteObject(file, state, out); \
+                if (rc != Ok) \
+                    return rc; \
+            } while (0)
+
+            HANDLE_PART(first);
             fprintf(file, " ");
-            CHECKFILEERROR;
-            rc = WriteObject(file, object->pair.second);
-            if (rc != IoOk)
-                return rc;
+            CHK_FERROR(return IoError);
+            HANDLE_PART(second);
+
+#undef HANDLE_PART
+
             fprintf(file, ")");
             break;
         case Null:
@@ -129,6 +158,6 @@ enum RetCode WriteObject(FILE *file, const struct Object *object) {
         default:
             return UnknownErr;
     }
-    CHECKFILEERROR;
-    return IoOk;
+    CHK_FERROR(return IoError);
+    return Ok;
 }

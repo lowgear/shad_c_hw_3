@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "models.h"
 #include "builtins.h"
 
@@ -6,6 +8,7 @@ struct ArgV emptyArgV = {.size = 0};
 struct ArgNames emptyArgNames = {.size = 0};
 
 void FreeExpr(struct Expression *expression) {
+    return;
     switch (expression->expType) {
         case Call:
             for (size_t i = 0; i < expression->paramsV->size; ++i) {
@@ -45,6 +48,7 @@ bool InitState(struct State *state) {
 }
 
 void FreeState(struct State *state) {
+    return;
     // todo free objects themselves
     for (size_t i = 0; i < CNT(state->objects); ++i) {
         free(ID(state->objects, i));
@@ -53,7 +57,6 @@ void FreeState(struct State *state) {
 
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
         FreeObj(ID(state->identifiers, i).value);
-//        free(ID(state->identifiers, i).identifier);
     }
     free(state->identifiers);
 
@@ -61,6 +64,7 @@ void FreeState(struct State *state) {
 }
 
 void FreeObj(struct Object *object) {
+    return;
     switch (object->type) {
         case Func:
             if (object->function->type == BuiltIn)
@@ -70,12 +74,12 @@ void FreeObj(struct Object *object) {
                 free(ID(object->function->userDef.head, i));
             }
             free(object->function->userDef.head);
+            free(object->function->name);
+            free(object->function);
             break;
         case Int:
             break;
         case Pair:
-            FreeObj(object->pair.first);
-            FreeObj(object->pair.second);
             break;
         case Null:
             return;

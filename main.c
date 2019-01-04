@@ -30,18 +30,17 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         struct Expression *expr;
-        enum RetCode rc = ReadExpression(f, &expr);
+        enum OpRetCode rc = ReadExpression(f, &expr);
         if (rc == eOf)
             break;
-        CHECK(rc == IoOk, "failed", rv = FailSyntax, freeExpr); // todo message
-        // todo io error
+        CHECK(rc == Ok, "failed", rv = FailSyntax, freeExpr);
 
         struct Object *res;
-        enum OpRetCode orc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
-        CHECK(!(orc & RuntimeError), "runtime error", rv = FailRuntime, freeExpr);
-        CHECK(orc == Ok, "syntax error", rv = FailSyntax, freeExpr);
+        rc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
+        CHECK(!(rc & RuntimeError), "runtime error", rv = FailRuntime, freeExpr);
+        CHECK(rc == Ok, "syntax error", rv = FailSyntax, freeExpr);
 
-        WriteObject(stdout, res);
+        WriteObject(stdout, &state, res);
         printf("\n");
 
         FreeExpr(expr);

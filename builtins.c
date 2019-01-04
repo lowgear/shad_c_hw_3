@@ -49,48 +49,45 @@ IMPL_HEAD(n)
 struct Object *res = NEW(struct Object); \
 if (res == NULL) return AllocationFailure;
 
+#define PROPER_END do { \
+    PUSH_BACK_P(&(state->objects), res, goto freeRes); \
+    *out = res; \
+    return Ok; \
+    \
+    freeRes: \
+    free(res); \
+    return AllocationFailure; \
+} while (0)
+
 BUILTIN_DEF(_if, if, 3) {
     enum OpRetCode rc;
     GETARGT(pred, 0, Int)
 
-    return GetLazyExprVal(&argv->array[pred->integer ? 1 : 2], state, out);
+    return GetLazyExprVal(argv->array[pred->integer ? 1 : 2], state, out);
 }
 
 BUILTIN_DEF(cons, cons, 2) {
-    enum OpRetCode rc;
-    GETARG(x, 0)
-    GETARG(y, 1)
     ALLOCRES
     *res = (struct Object) {
             .type = Pair,
             .pair = {
-                    .first = x,
-                    .second = y
+                    .first = argv->array[0],
+                    .second = argv->array[1]
             }
     };
-    PUSH_BACK_P(&(state->objects), res, goto freeRes);
-    *out = res;
-    return Ok;
-
-    freeRes:
-    free(res);
-    return AllocationFailure;
+    PROPER_END;
 }
 
 BUILTIN_DEF(car, car, 1) {
     enum OpRetCode rc;
     GETARGT(p, 0, Pair)
-    *out = p->pair.first;
-    return Ok;
-    // TODO free
+    return GetLazyExprVal(p->pair.first, state, out);
 }
 
 BUILTIN_DEF(cdr, cdr, 1) {
     enum OpRetCode rc;
     GETARGT(p, 0, Pair)
-    *out = p->pair.second;
-    return Ok;
-    // TODO free
+    return GetLazyExprVal(p->pair.second, state, out);
 }
 
 IMPL_HEAD(function) {
@@ -133,8 +130,8 @@ enum OpRetCode CheckHead(struct Expression *header) {
 }
 
 BUILTIN_DEF(define, define, 2) {
-    struct Expression *header = ID(argv, 0).expression;
-    struct Expression *body = ID(argv, 1).expression;
+    struct Expression *header = ID(argv, 0)->expression;
+    struct Expression *body = ID(argv, 1)->expression;
     enum OpRetCode rc;
     rc = CheckHead(header);
     if (rc != Ok)
@@ -181,6 +178,13 @@ BUILTIN_DEF(define, define, 2) {
 
     // finish body free prevent
     body->expType = Const;
+    body->object = NULL;
+
+    // prevent name and argNames freeing
+    for (size_t i = 0; i < SIZE(header->paramsV); ++i) {
+        ID(header->paramsV, i)->object = NULL;
+        ID(header->paramsV, i)->expType = Const;
+    }
 
     *out = &badFunc;
 
@@ -212,13 +216,7 @@ BUILTIN_DEF(name, idft, 2) { \
             .type = Int, \
             .integer = x->integer idft y->integer \
     }; \
-    PUSH_BACK_P(&(state->objects), res, goto freeRes); \
-    *out = res; \
-    return Ok; \
-    \
-    freeRes: \
-    free(res); \
-    return AllocationFailure; \
+    PROPER_END; \
 }
 
 BINOP(addition, +)
@@ -226,6 +224,7 @@ BINOP(addition, +)
 BINOP(subtraction, -)
 
 BINOP(multiplication, *)
+
 
 BUILTIN_DEF(division, /, 2) {
     enum OpRetCode rc;
@@ -237,9 +236,9 @@ BUILTIN_DEF(division, /, 2) {
             .type = Int,
             .integer = x->integer / y->integer
     };
-    *out = res;
-    return Ok;
+    PROPER_END;
 }
+
 
 BUILTIN_DEF(modulo, %, 2) {
     enum OpRetCode rc;
@@ -251,8 +250,7 @@ BUILTIN_DEF(modulo, %, 2) {
             .type = Int,
             .integer = x->integer % y->integer
     };
-    *out = res;
-    return Ok;
+    PROPER_END;
 }
 
 #define CMPOP(name, idft, op) \
@@ -265,8 +263,7 @@ BUILTIN_DEF(name, idft, 2) { \
             .type = Int, \
             .integer = (x->integer op y->integer ? 1 : 0) \
     }; \
-    *out = res; \
-    return Ok; \
+    PROPER_END; \
 }
 
 CMPOP(less, <, <)

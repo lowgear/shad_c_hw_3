@@ -4,6 +4,22 @@
 #include <stdbool.h>
 
 #include "utils/vector.h"
+#include "utils/goodies.h"
+
+#define REFCNT_DEF size_t refCnt
+#define REFCNT(t) ((t)->refCnt)
+
+#define NEWSMRT(tar, T, onFail) do { \
+    if (((tar) = NEW(T)) == NULL) onFail; \
+    else REFCNT(tar) = 1; \
+} while (0)
+
+#define CPYREF(src, dst) do { \
+    (dst) = (src); \
+    ++REFCNT(src); \
+} while (0)
+
+#define FREEREF(t) if (--REFCNT(t) == 0) free(t);
 
 struct Expression;
 struct Object;
@@ -29,6 +45,9 @@ enum OpRetCode {
     ArgTypeMismatch = RuntimeError,
     AllocationFailure,
     DBZ,
+    eOf,
+    IoError,
+    UnknownErr
 };
 
 enum Type {
@@ -44,18 +63,14 @@ enum ExpType {
     Var
 };
 
-enum FuncType {
-    BuiltIn,
-    UserDef
-};
-
 struct Expression {
     union {
         struct CallParams *paramsV;
         struct Object *object;
         char *var;
     };
-    enum ExpType expType;
+    REFCNT_DEF;
+    enum ExpType expType : 2;
 };
 
 struct UserDefFunc {
@@ -66,24 +81,29 @@ struct UserDefFunc {
 struct Function {
     union {
         struct UserDefFunc userDef;
-        BuiltInFunc builtIn;
+        struct {
+            BuiltInFunc builtIn;
+            void *isUserDefined;
+        };
     };
-    const char *name;
-    enum FuncType type;
+    char *name;
+    REFCNT_DEF;
     uint8_t argc;
 };
 
+
 struct Pair {
-    struct Object *first;
-    struct Object *second;
+    struct LazyExpr *first;
+    struct LazyExpr *second;
 };
 
 struct Object {
     union {
         struct Function *function;
         int32_t integer;
-        struct Pair pair;
+        struct Pair *pair;
     };
+    REFCNT_DEF;
     enum Type type;
 };
 
@@ -92,9 +112,10 @@ struct LazyExpr {
     struct ArgV *argv;
     struct ArgNames *argNames;
     struct Object *value;
+    REFCNT_DEF;
 };
 
-DEF_ARRAY(ArgV, struct LazyExpr);
+DEF_ARRAY(ArgV, struct LazyExpr*);
 
 struct IdentifierValuePair {
     char *identifier;
@@ -102,12 +123,10 @@ struct IdentifierValuePair {
 };
 
 DEF_VECTOR(IdentifierList, struct IdentifierValuePair)
-DEF_VECTOR(ObjectList, struct Object*)
 
 struct State {
     struct IdentifierList *builtins;
     struct IdentifierList *identifiers;
-    struct ObjectList *objects;
 };
 
 extern struct ArgV emptyArgV;
@@ -117,5 +136,6 @@ bool InitState(struct State *state);
 
 void FreeState(struct State *state);
 void FreeExpr(struct Expression *expression);
-
 void FreeObj(struct Object *object);
+
+#undef REFCNT_DEF
