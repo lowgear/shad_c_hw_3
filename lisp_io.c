@@ -84,6 +84,7 @@ enum RetCode ReadExpression(FILE *file, struct Expression **out) {
                 .type = Int,
                 .integer = value
         };
+        free(str);
         return IoOk;
     }
 
@@ -125,6 +126,8 @@ enum RetCode WriteObject(FILE *file, const struct Object *object) {
         case Null:
             fprintf(file, "null");
             break;
+        default:
+            return UnknownErr;
     }
     CHECKFILEERROR;
     return IoOk;

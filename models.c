@@ -6,10 +6,22 @@ struct ArgV emptyArgV = {.size = 0};
 struct ArgNames emptyArgNames = {.size = 0};
 
 void FreeExpr(struct Expression *expression) {
+    switch (expression->expType) {
+        case Call:
+            for (size_t i = 0; i < expression->paramsV->size; ++i) {
+                FreeExpr(ID(expression->paramsV, i));
+            }
+            FREE_V(expression->paramsV);
+            break;
+        case Const:
+            free(expression->object);
+            break;
+        case Var:
+            free(expression->var);
+            break;
+    }
     if (expression->expType == Call) {
-        for (size_t i = 0; i < expression->paramsV->size; ++i) {
-            FreeExpr(ID(expression->paramsV, i));
-        }
+
     }
     free(expression);
 }
@@ -34,7 +46,39 @@ bool InitState(struct State *state) {
 
 void FreeState(struct State *state) {
     // todo free objects themselves
+    for (size_t i = 0; i < CNT(state->objects); ++i) {
+        free(ID(state->objects, i));
+    }
     free(state->objects);
+
+    for (size_t i = 0; i < CNT(state->identifiers); ++i) {
+        FreeObj(ID(state->identifiers, i).value);
+//        free(ID(state->identifiers, i).identifier);
+    }
     free(state->identifiers);
+
     free(state->builtins);
+}
+
+void FreeObj(struct Object *object) {
+    switch (object->type) {
+        case Func:
+            if (object->function->type == BuiltIn)
+                return;
+            FreeExpr(object->function->userDef.body);
+            for (size_t i = 0; i < SIZE(object->function->userDef.head); ++i) {
+                free(ID(object->function->userDef.head, i));
+            }
+            free(object->function->userDef.head);
+            break;
+        case Int:
+            break;
+        case Pair:
+            FreeObj(object->pair.first);
+            FreeObj(object->pair.second);
+            break;
+        case Null:
+            return;
+    }
+    free(object);
 }

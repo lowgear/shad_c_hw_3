@@ -68,8 +68,13 @@ BUILTIN_DEF(cons, cons, 2) {
                     .second = y
             }
     };
+    PUSH_BACK_P(&(state->objects), res, goto freeRes);
     *out = res;
     return Ok;
+
+    freeRes:
+    free(res);
+    return AllocationFailure;
 }
 
 BUILTIN_DEF(car, car, 1) {
@@ -135,7 +140,7 @@ BUILTIN_DEF(define, define, 2) {
     if (rc != Ok)
         return rc;
 
-    const char *funcName = ID(header->paramsV, 0)->var;
+    char *funcName = ID(header->paramsV, 0)->var;
 
     struct ArgNames *argNames;
     const uint8_t argc = (const uint8_t) (header->paramsV->size - 1);
@@ -207,8 +212,13 @@ BUILTIN_DEF(name, idft, 2) { \
             .type = Int, \
             .integer = x->integer idft y->integer \
     }; \
+    PUSH_BACK_P(&(state->objects), res, goto freeRes); \
     *out = res; \
     return Ok; \
+    \
+    freeRes: \
+    free(res); \
+    return AllocationFailure; \
 }
 
 BINOP(addition, +)

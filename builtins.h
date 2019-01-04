@@ -2,7 +2,7 @@
 
 #include "models.h"
 
-struct IdentifierValuePair
+extern struct IdentifierValuePair
         define,
 
         addition,
@@ -24,4 +24,4 @@ struct IdentifierValuePair
         nul;
 
 extern struct IdentifierValuePair *BUILTINS[];
-size_t BUILTINS_SIZE;
+extern size_t BUILTINS_SIZE;

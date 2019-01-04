@@ -11,7 +11,7 @@ struct Function;
 struct ArgV;
 struct State;
 struct Pair;
-DEF_ARRAY(ArgNames, const char *);
+DEF_ARRAY(ArgNames, char *);
 DEF_ARRAY(CallParams, struct Expression *);
 
 typedef enum OpRetCode (*BuiltInFunc)(
@@ -33,7 +33,6 @@ enum OpRetCode {
 
 enum Type {
     Func,
-    BuiltInF,
     Int,
     Pair,
     Null,
@@ -54,7 +53,7 @@ struct Expression {
     union {
         struct CallParams *paramsV;
         struct Object *object;
-        const char *var;
+        char *var;
     };
     enum ExpType expType;
 };
@@ -98,7 +97,7 @@ struct LazyExpr {
 DEF_ARRAY(ArgV, struct LazyExpr);
 
 struct IdentifierValuePair {
-    const char *identifier;
+    char *identifier;
     struct Object *value;
 };
 
@@ -111,11 +110,12 @@ struct State {
     struct ObjectList *objects;
 };
 
+extern struct ArgV emptyArgV;
+extern struct ArgNames emptyArgNames;
+
 bool InitState(struct State *state);
 
 void FreeState(struct State *state);
-
-struct ArgV emptyArgV;
-struct ArgNames emptyArgNames;
-
 void FreeExpr(struct Expression *expression);
+
+void FreeObj(struct Object *object);
