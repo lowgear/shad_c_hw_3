@@ -37,7 +37,8 @@ struct Function n##_func = {\
 }; \
 struct Object n##_object = { \
         .type = Func, \
-        .function = &n##_func \
+        .function = &n##_func, \
+        .refCnt = 2 \
 }; \
 struct IdentifierValuePair n = { \
         .identifier = #idnt, \
@@ -54,7 +55,7 @@ NEWSMRT(res, struct Object, return AllocationFailure);
     return Ok; \
     \
     freeRes: \
-    free(res); \
+    FreeObj(&res); \
     return AllocationFailure; \
 } while (0)
 
@@ -62,7 +63,9 @@ BUILTIN_DEF(_if, if, 3) {
     enum OpRetCode rc;
     GETARGT(pred, 0, Int)
 
-    return GetLazyExprVal(argv->array[pred->integer ? 1 : 2], state, out);
+    rc = GetLazyExprVal(argv->array[pred->integer ? 1 : 2], state, out);
+    FreeObj(&pred);
+    return rc;
 }
 
 BUILTIN_DEF(cons, cons, 2) {
@@ -71,23 +74,25 @@ BUILTIN_DEF(cons, cons, 2) {
     TRY_NEW(pair, struct Pair, goto freeRes);
     CPYREF(argv->array[0], pair->first);
     CPYREF(argv->array[1], pair->second);
-    *res = (struct Object) {
-            .type = Pair,
-            .pair = pair
-    };
+    res->type = Pair;
+    res->pair = pair;
     PROPER_END;
 }
 
 BUILTIN_DEF(car, car, 1) {
     enum OpRetCode rc;
     GETARGT(p, 0, Pair)
-    return GetLazyExprVal(p->pair.first, state, out);
+    rc = GetLazyExprVal(p->pair->first, state, out);
+    FreeObj(&p);
+    return rc;
 }
 
 BUILTIN_DEF(cdr, cdr, 1) {
     enum OpRetCode rc;
     GETARGT(p, 0, Pair)
-    return GetLazyExprVal(p->pair.second, state, out);
+    rc = GetLazyExprVal(p->pair->second, state, out);
+    FreeObj(&p);
+    return rc;
 }
 
 IMPL_HEAD(function) {
@@ -103,7 +108,7 @@ struct Function function_func = {
 struct Object badFunc = {
         .type = Func,
         .function = &function_func,
-        .refCnt = 1;
+        .refCnt = 2
 };
 
 enum OpRetCode CheckHead(struct Expression *header) {
@@ -138,49 +143,48 @@ BUILTIN_DEF(define, define, 2) {
     if (rc != Ok)
         return rc;
 
-    char *funcName = ID(header->paramsV, 0)->var;
+    char *funcName = NEWARR(char, strlen(ID(header->paramsV, 0)->var) + 1);
+    if (funcName == NULL)
+        return AllocationFailure;
+    strcpy(funcName, ID(header->paramsV, 0)->var);
 
     struct ArgNames *argNames;
     const uint8_t argc = (const uint8_t) (header->paramsV->size - 1);
     INIT_ARR(argNames, argc, goto allocFailure);
     for (size_t i = 1; i < header->paramsV->size; ++i) {
-        ID(argNames, i - 1) = ID(header->paramsV, i)->var;
+        ID(argNames, i - 1) = NEWARR(char, strlen(ID(header->paramsV, i)->var) + 1);
+        if (ID(argNames, i - 1) == NULL) goto cleanup;
+        strcpy(ID(argNames, i - 1), ID(header->paramsV, i)->var);
+        continue;
+
+        cleanup:
+        for (size_t j = 1; j < i; ++j) {
+            free(ID(argNames, i - 1));
+        }
+        goto freeArgNames;
     }
 
     struct Function *function;
-    TRY_NEW(function, struct Function, goto freeTrueBody);
+    TRY_NEW(function, struct Function, goto freeArgNames);
     *function = (struct Function) {
             .name=funcName,
-            .type = UserDef,
             .userDef = (struct UserDefFunc) {
-                    .head = argNames,
-                    .body = body
+                    .head = argNames
             },
             .argc = argc
     };
+    CPYREF(body, function->userDef.body);
 
     struct Object *func;
-    TRY_NEW(func, struct Function, goto freeFunction);
-    *func = (struct Object) {
-            .type = Func,
-            .function = function
-    };
+    NEWSMRT(func, struct Object, goto freeFunction);
+    func->type = Func;
+    func->function = function;
 
     struct IdentifierValuePair iv = {
             .identifier = funcName,
             .value = func
     };
     PUSH_BACK_P(&state->identifiers, iv, goto freeFunc);
-
-    // finish body free prevent
-    body->expType = Const;
-    body->object = NULL;
-
-    // prevent name and argNames freeing
-    for (size_t i = 0; i < SIZE(header->paramsV); ++i) {
-        ID(header->paramsV, i)->object = NULL;
-        ID(header->paramsV, i)->expType = Const;
-    }
 
     *out = &badFunc;
 
@@ -191,9 +195,6 @@ BUILTIN_DEF(define, define, 2) {
 
     freeFunction:
     free(function);
-
-    freeTrueBody:
-    free(trueBody);
 
     freeArgNames:
     free(argNames);
@@ -208,16 +209,29 @@ BUILTIN_DEF(name, idft, 2) { \
     GETARGT(x, 0, Int) \
     GETARGT(y, 1, Int) \
     ALLOCRES \
-    *res = (struct Object) { \
-            .type = Int, \
-            .integer = x->integer idft y->integer \
-    }; \
+    res->type = Int; \
+    res->integer = x->integer idft y->integer; \
+    FreeObj(&x); \
+    FreeObj(&y); \
     PROPER_END; \
 }
 
 BINOP(addition, +)
 
-BINOP(subtraction, -)
+//BINOP(subtraction, -)
+
+BUILTIN_DEF(subtraction, -, 2) {
+    \
+    enum OpRetCode rc; \
+    GETARGT(x, 0, Int)
+    GETARGT(y, 1, Int)
+    ALLOCRES
+    res->type = Int;
+    res->integer = x->integer - y->integer;
+    FreeObj(&x);
+    FreeObj(&y);
+    PROPER_END;
+}
 
 BINOP(multiplication, *)
 
@@ -225,13 +239,16 @@ BINOP(multiplication, *)
 BUILTIN_DEF(division, /, 2) {
     enum OpRetCode rc;
     GETARGT(y, 1, Int)
-    if (y->integer == 0) return DBZ;
+    if (y->integer == 0) {
+        FreeObj(&y);
+        return DBZ;
+    }
     GETARGT(x, 0, Int)
     ALLOCRES
-    *res = (struct Object) {
-            .type = Int,
-            .integer = x->integer / y->integer
-    };
+    res->type = Int;
+    res->integer = x->integer / y->integer;
+    FreeObj(&x);
+    FreeObj(&y);
     PROPER_END;
 }
 
@@ -239,13 +256,16 @@ BUILTIN_DEF(division, /, 2) {
 BUILTIN_DEF(modulo, %, 2) {
     enum OpRetCode rc;
     GETARGT(y, 1, Int)
-    if (y->integer == 0) return DBZ;
+    if (y->integer == 0) {
+        FreeObj(&y);
+        return DBZ;
+    }
     GETARGT(x, 0, Int)
     ALLOCRES
-    *res = (struct Object) {
-            .type = Int,
-            .integer = x->integer % y->integer
-    };
+    res->type = Int;
+    res->integer = x->integer % y->integer;
+    FreeObj(&x);
+    FreeObj(&y);
     PROPER_END;
 }
 
@@ -255,10 +275,10 @@ BUILTIN_DEF(name, idft, 2) { \
     GETARGT(x, 0, Int) \
     GETARGT(y, 1, Int) \
     ALLOCRES \
-    *res = (struct Object) { \
-            .type = Int, \
-            .integer = (x->integer op y->integer ? 1 : 0) \
-    }; \
+    res->type = Int; \
+    res->integer = (x->integer op y->integer ? 1 : 0); \
+    FreeObj(&x); \
+    FreeObj(&y); \
     PROPER_END; \
 }
 
@@ -266,10 +286,23 @@ CMPOP(less, <, <)
 
 CMPOP(greater, >, >)
 
-CMPOP(equal, =, ==)
+//CMPOP(equal, =, ==)
+
+BUILTIN_DEF(equal, =, 2) {
+    enum OpRetCode rc;
+    GETARGT(x, 0, Int)
+    GETARGT(y, 1, Int)
+    ALLOCRES
+    res->type = Int;
+    res->integer = x->integer == y->integer;
+    FreeObj(&x);
+    FreeObj(&y);
+    PROPER_END;
+}
 
 struct Object NullObject = {
-        .type = Null
+        .type = Null,
+        .refCnt = 2
 };
 struct IdentifierValuePair nul = {
         .identifier = "null",

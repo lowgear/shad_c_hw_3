@@ -32,7 +32,7 @@ enum OpRetCode ReadCall(FILE *file, struct Expression **out) {
         continue;
 
         freeCurExpr:
-        FreeExpr(curExp);
+        FreeExpr(&curExp);
         goto freeExprList;
     }
 
@@ -49,21 +49,17 @@ enum OpRetCode ReadCall(FILE *file, struct Expression **out) {
 
     freeExprList:
     for (size_t i = 0; i < CNT(exprList); ++i) {
-        FreeExpr(ID(exprList, i));
+        FreeExpr(&ID(exprList, i));
     }
     free(exprList);
     return rc;
 }
 
 enum OpRetCode HandleReadInt(char *str, int32_t value, struct Expression **out) {
-    **out = (struct Expression) {
-            .expType = Const,
-    };
+    (*out)->expType = Const;
     NEWSMRT((*out)->object, struct Object, goto freeOut);
-    *(*out)->object = (struct Object) {
-            .type = Int,
-            .integer = value
-    };
+    (*out)->object->type = Int;
+    (*out)->object->integer = value;
     free(str);
     return Ok;
 
@@ -75,10 +71,8 @@ enum OpRetCode HandleReadInt(char *str, int32_t value, struct Expression **out) 
 }
 
 enum OpRetCode HandleReadVar(char *str, struct Expression **out) {
-    **out = (struct Expression) {
-            .expType = Var,
-            .var = str
-    };
+    (*out)->expType = Var;
+    (*out)->var = str;
     return Ok;
 }
 
@@ -139,8 +133,8 @@ enum OpRetCode WriteObject(FILE *file, struct State *state, const struct Object 
                 rc = GetLazyExprVal(object->pair->part, state, &out); \
                 if (rc != Ok) return rc; \
                 rc = WriteObject(file, state, out); \
-                if (rc != Ok) \
-                    return rc; \
+                FreeObj(&out); \
+                if (rc != Ok) return rc; \
             } while (0)
 
             HANDLE_PART(first);

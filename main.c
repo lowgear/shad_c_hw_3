@@ -40,14 +40,15 @@ int main(int argc, char *argv[]) {
         CHECK(!(rc & RuntimeError), "runtime error", rv = FailRuntime, freeExpr);
         CHECK(rc == Ok, "syntax error", rv = FailSyntax, freeExpr);
 
-        WriteObject(stdout, &state, res);
+        rc = WriteObject(stdout, &state, res);
+        FreeObj(&res);
         printf("\n");
 
-        FreeExpr(expr);
+        FreeExpr(&expr);
         continue;
 
         freeExpr:
-        FreeExpr(expr);
+        FreeExpr(&expr);
         goto closeFile;
     }
 

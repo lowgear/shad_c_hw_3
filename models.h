@@ -5,21 +5,7 @@
 
 #include "utils/vector.h"
 #include "utils/goodies.h"
-
-#define REFCNT_DEF size_t refCnt
-#define REFCNT(t) ((t)->refCnt)
-
-#define NEWSMRT(tar, T, onFail) do { \
-    if (((tar) = NEW(T)) == NULL) onFail; \
-    else REFCNT(tar) = 1; \
-} while (0)
-
-#define CPYREF(src, dst) do { \
-    (dst) = (src); \
-    ++REFCNT(src); \
-} while (0)
-
-#define FREEREF(t) if (REFCNT(t) != 0 || (--REFCNT(t) != 0)) return
+#include "utils/smartptr_tools.h"
 
 struct Expression;
 struct Object;
@@ -135,9 +121,11 @@ extern struct ArgNames emptyArgNames;
 bool InitState(struct State *state);
 
 void FreeState(struct State *state);
-void FreeExpr(struct Expression *expression);
-void FreeObj(struct Object *object);
 
-void FreeLazyExpr(struct LazyExpr *lazyExpr);
+void FreeExpr(struct Expression **expression);
+
+void FreeObj(struct Object **object);
+
+void FreeLazyExpr(struct LazyExpr **lazyExpr);
 
 #undef REFCNT_DEF

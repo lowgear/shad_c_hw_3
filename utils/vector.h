@@ -3,10 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "smartptr_tools.h"
+
+#define DEFSIZE 10
+
 #define DEF_ARRAY(name, T) \
 struct name { \
+    REFCNT_DEF; \
     size_t size; \
-    T array[1]; \
+    T array[DEFSIZE]; \
 }; \
 
 #define INIT_ARR(v, sz, fallbackAction) do { \
@@ -14,13 +19,22 @@ struct name { \
     if ((v) == NULL) \
         fallbackAction; \
     (v)->size = (sz); \
+    REFCNT(v) = 1; \
 } while(0)
+
+#define FREE_A(v, freer) do { \
+    IFFREE(v) { \
+        for (size_t aiter = 0; aiter < SIZE(v); ++aiter) \
+            freer(&ID(v, aiter)); \
+        free(v); \
+    } \
+} while (0)
 
 #define DEF_VECTOR(name, T) \
     struct name { \
         size_t size; \
         size_t cnt; \
-        T array[1]; \
+        T array[DEFSIZE]; \
     }; \
     \
     typedef struct name* name##_Ptr;

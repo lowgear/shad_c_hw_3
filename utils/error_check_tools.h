@@ -36,3 +36,5 @@ VERIFY(condition, message, setCode, goto label)
 
 #define ROLLBACK(condition, message, rv, value) \
 VERIFY(condition, message, rv, value, (void)0)
+
+#define CHK(condition, setCode, onFail) if (!(condition)) { setCode; onFail;}
