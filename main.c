@@ -31,25 +31,24 @@ int main(int argc, char *argv[]) {
     while (1) {
         struct Expression *expr;
         enum OpRetCode rc = ReadExpression(f, &expr);
-        if (rc == eOf)
-            break;
+        if (rc == eOf) break;
         CHECK(rc == Ok, "failed", rv = FailSyntax, freeExpr);
 
         struct Object *res;
         rc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
-        CHECK(!(rc & RuntimeError), "runtime error", rv = FailRuntime, freeExpr);
-        CHECK(rc == Ok, "syntax error", rv = FailSyntax, freeExpr);
+        CHK(rc == Ok, (void) 0, goto freeExpr);
 
         rc = WriteObject(stdout, &state, res);
-        FreeObj(&res);
         printf("\n");
+        CHK(rc == Ok, (void) 0, goto freeObj);
 
-        FreeExpr(&expr);
-        continue;
-
+        freeObj:
+        FreeObj(&res);
         freeExpr:
         FreeExpr(&expr);
-        goto closeFile;
+
+        CHECK(!(rc & RuntimeError), "runtime error", rv = FailRuntime, closeFile);
+        CHECK(rc == Ok, "syntax error", rv = FailSyntax, closeFile);
     }
 
     closeFile:
