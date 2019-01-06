@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.13)
-project(shad_c_hw_3 C)
+project(shad_c_hw_3 C CXX)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O1")
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(GTEST googletest-release-1.8.1/googletest)
+
+include_directories(${GTEST} ${GTEST}/include .)
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 add_executable(shad_c_hw_3
         main.c
@@ -13,3 +21,19 @@ add_executable(shad_c_hw_3
         models.c
         utils/iotools.c
         utils/strtools.c)
+
+aux_source_directory(tests TEST_SRCS)
+
+add_executable(check
+        test_main.cpp
+        ${GTEST}/src/gtest-all.cc
+        evaluation.c
+        builtins.c
+        lisp_io.c
+        models.c
+        utils/iotools.c
+        utils/strtools.c
+
+        ${TEST_SRCS})
+
+target_link_libraries(check Threads::Threads)

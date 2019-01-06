@@ -92,7 +92,7 @@ enum OpRetCode ReadExpression(FILE *file, struct Expression **out) {
         return ReadCall(file, out);
     }
 
-    size_t tokenLen = NextStrLen(file);
+    size_t tokenLen = NextTokenLen(file);
     CHK_FERROR(return IoError);
     char *str = NEWARR(char, tokenLen + 1);
     if (str == NULL)

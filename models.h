@@ -7,21 +7,6 @@
 #include "utils/goodies.h"
 #include "utils/smartptr_tools.h"
 
-struct Expression;
-struct Object;
-struct Function;
-struct ArgV;
-struct State;
-struct Pair;
-struct LazyExpr;
-DEF_ARRAY(ArgNames, char *);
-DEF_ARRAY(CallParams, struct Expression *);
-
-typedef enum OpRetCode (*BuiltInFunc)(
-        struct ArgV *argv,
-        struct State *state,
-        struct Object **out);
-
 enum OpRetCode {
     Ok = 0,
     UndefinedArg,
@@ -49,6 +34,21 @@ enum ExpType {
     Const,
     Var
 };
+
+struct Expression;
+struct Object;
+struct Function;
+struct ArgV;
+struct State;
+struct Pair;
+struct LazyExpr;
+DEF_ARRAY(ArgNames, char *);
+DEF_ARRAY(CallParams, struct Expression *);
+
+typedef enum OpRetCode (*BuiltInFunc)(
+        struct ArgV *argv,
+        struct State *state,
+        struct Object **out);
 
 struct Expression {
     union {

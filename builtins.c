@@ -7,24 +7,6 @@
 #include "utils/goodies.h"
 #include "impl_goodies.h"
 
-struct IdentifierValuePair *BUILTINS[] = {
-        &define,
-        &addition,
-        &subtraction,
-        &multiplication,
-        &division,
-        &modulo,
-        &less,
-        &greater,
-        &equal,
-        &cons,
-        &car,
-        &cdr,
-        &_if,
-        &nul};
-
-size_t BUILTINS_SIZE = sizeof(BUILTINS) / sizeof(BUILTINS[0]);
-
 #define IMPL_HEAD(name) enum OpRetCode name##_impl(struct ArgV *argv, struct State *state, struct Object **out)
 
 #define BUILTIN_DEF(n, idnt, ac) \
@@ -218,20 +200,7 @@ BUILTIN_DEF(name, idft, 2) { \
 
 BINOP(addition, +)
 
-//BINOP(subtraction, -)
-
-BUILTIN_DEF(subtraction, -, 2) {
-    \
-    enum OpRetCode rc; \
-    GETARGT(x, 0, Int)
-    GETARGT(y, 1, Int)
-    ALLOCRES
-    res->type = Int;
-    res->integer = x->integer - y->integer;
-    FreeObj(&x);
-    FreeObj(&y);
-    PROPER_END;
-}
+BINOP(subtraction, -)
 
 BINOP(multiplication, *)
 
@@ -286,19 +255,7 @@ CMPOP(less, <, <)
 
 CMPOP(greater, >, >)
 
-//CMPOP(equal, =, ==)
-
-BUILTIN_DEF(equal, =, 2) {
-    enum OpRetCode rc;
-    GETARGT(x, 0, Int)
-    GETARGT(y, 1, Int)
-    ALLOCRES
-    res->type = Int;
-    res->integer = x->integer == y->integer;
-    FreeObj(&x);
-    FreeObj(&y);
-    PROPER_END;
-}
+CMPOP(equal, =, ==)
 
 struct Object NullObject = {
         .type = Null,
@@ -308,3 +265,21 @@ struct IdentifierValuePair nul = {
         .identifier = "null",
         .value = &NullObject
 };
+
+struct IdentifierValuePair *BUILTINS[] = {
+        &define,
+        &addition,
+        &subtraction,
+        &multiplication,
+        &division,
+        &modulo,
+        &less,
+        &greater,
+        &equal,
+        &cons,
+        &car,
+        &cdr,
+        &_if,
+        &nul};
+
+size_t BUILTINS_SIZE = sizeof(BUILTINS) / sizeof(BUILTINS[0]);

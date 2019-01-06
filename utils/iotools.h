@@ -2,4 +2,4 @@
 
 #include <stdio.h>
 
-size_t NextStrLen(FILE *file);
+size_t NextTokenLen(FILE *file);
