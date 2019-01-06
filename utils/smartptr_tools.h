@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "goodies.h"
 
 #define REFCNT_DEF size_t refCnt
@@ -13,6 +14,6 @@
     ++REFCNT(src); \
 } while (0)
 
-#define FREEREF_RET(t) if (REFCNT(t) != 0 && (--REFCNT(t) != 0)) { *t##P = NULL; return; }
+#define FREEREF_RET(t) assert(REFCNT(t)); if (--REFCNT(t) != 0) { *t##P = NULL; return; }
 
-#define IFFREE(t) if (REFCNT(t) == 0 || (--REFCNT(t) == 0))
+#define IFFREE(t) assert(REFCNT(t)); if (--REFCNT(t) == 0)

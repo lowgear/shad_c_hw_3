@@ -168,7 +168,7 @@ BUILTIN_DEF(define, define, 2) {
     };
     PUSH_BACK_P(&state->identifiers, iv, goto freeFunc);
 
-    *out = &badFunc;
+    CPYREF(&badFunc, *out);
 
     return Ok;
 

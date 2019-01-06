@@ -5,7 +5,8 @@
 
 #include "smartptr_tools.h"
 
-#define DEFSIZE 10
+// useful to set it greater for debug
+#define DEFSIZE 1
 
 #define DEF_ARRAY(name, T) \
 struct name { \
@@ -15,7 +16,7 @@ struct name { \
 }; \
 
 #define INIT_ARR(v, sz, fallbackAction) do { \
-    (v) = malloc(sizeof(*v) + sizeof((v)->array[0]) * (sz) - sizeof((v)->array[0])); \
+    (v) = malloc((sizeof(*v) + sizeof((v)->array[0]) * (sz)) - sizeof((v)->array[0]) * (DEFSIZE)); \
     if ((v) == NULL) \
         fallbackAction; \
     (v)->size = (sz); \
@@ -51,7 +52,7 @@ struct name { \
 
 #define INIT_VEC(vec, s, fallbackAction) \
     do { \
-        (vec) = (__typeof(vec))malloc(sizeof((*(vec))) + ((s) - 1) * sizeof(ID_P(&vec, 0))); \
+        (vec) = (__typeof(vec))malloc((sizeof((*(vec))) + (s) * sizeof(ID_P(&vec, 0))) - (DEFSIZE) * sizeof(ID_P(&vec, 0))); \
         if ((vec) == NULL) \
             fallbackAction; \
         (vec)->size = s; \
@@ -75,4 +76,4 @@ struct name { \
         ++CNT_P(vecP); \
     } while (0);
 
-#define FREE_V(vec) free((vec));
+#define FREE_V(vec) do { free(*(vec)); *(vec) = NULL; } while (0)

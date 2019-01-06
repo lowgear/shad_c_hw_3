@@ -16,7 +16,7 @@ void FreeExpr(struct Expression **expressionP) {
             for (size_t i = 0; i < expression->paramsV->size; ++i) {
                 FreeExpr(&ID(expression->paramsV, i));
             }
-            FREE_V(expression->paramsV);
+            FREE_V(&expression->paramsV);
             break;
         case Const:
             FreeObj(&expression->object);
@@ -48,9 +48,9 @@ void FreeState(struct State *state) {
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
         FreeObj(&ID(state->identifiers, i).value);
     }
-    FREE_V(state->identifiers);
+    FREE_V(&state->identifiers);
 
-    FREE_V(state->builtins);
+    FREE_V(&state->builtins);
 }
 
 void FreeObj(struct Object **objectP) {
