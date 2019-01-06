@@ -4,9 +4,9 @@
 #include "models.h"
 #include "builtins.h"
 
-struct ArgV emptyArgV = {.size = 0};
+struct ArgV emptyArgV = {.size = 0, .refCnt = 2};
 
-struct ArgNames emptyArgNames = {.size = 0};
+struct ArgNames emptyArgNames = {.size = 0, .refCnt = 2};
 
 void FreeExpr(struct Expression **expressionP) {
     struct Expression *expression = *expressionP;
@@ -92,6 +92,7 @@ void FreeLazyExpr(struct LazyExpr **lazyExprP) {
     if (lazyExpr->value != NULL) {
         FreeObj(&lazyExpr->value);
     }
+    FREE_A(lazyExpr->argv, FreeLazyExpr);
     FreeExpr(&lazyExpr->expression);
     free(lazyExpr);
     *lazyExprP = NULL;

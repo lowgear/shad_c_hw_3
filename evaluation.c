@@ -58,7 +58,7 @@ enum OpRetCode MakeCallArgV(
     INIT_ARR(*callArgV, callParams->size - 1, return AllocationFailure);
     for (size_t i = 1; i < callParams->size; ++i) {
         // shortcuts for Vars
-        if (ID(callParams, i)->expType == Var) {
+        /*if (ID(callParams, i)->expType == Var) {
             rc = EvalVarLazy(ID(callParams, i), argv, argNames, state, &ID(*callArgV, i - 1));
             if (rc != Ok) {
                 for (size_t j = 1; j < i; ++j) {
@@ -68,7 +68,7 @@ enum OpRetCode MakeCallArgV(
                 return rc;
             }
             continue;
-        }
+        }*/
 
         NEWSMRT(ID(*callArgV, i - 1), struct LazyExpr, rc = AllocationFailure;
                 goto cleanup);
