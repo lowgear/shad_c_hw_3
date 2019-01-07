@@ -4,7 +4,7 @@
 #include "models.h"
 #include "builtins.h"
 #include "evaluation.h"
-#include "utils/goodies.h"
+#include "utils/new_tools.h"
 #include "impl_goodies.h"
 
 #define IMPL_HEAD(name) enum OpRetCode name##_impl(struct ArgV *argv, struct State *state, struct Object **out)

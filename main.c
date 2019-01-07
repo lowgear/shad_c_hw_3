@@ -15,6 +15,7 @@ enum ExitCodes {
     FailOpen,
     FailSyntax,
     FailRuntime,
+    FailIO
 };
 
 int main(int argc, char *argv[]) {
@@ -32,7 +33,7 @@ int main(int argc, char *argv[]) {
         struct Expression *expr;
         enum OpRetCode rc = ReadExpression(f, &expr);
         if (rc == eOf) break;
-        CHECK(rc == Ok, "failed", rv = FailSyntax, freeExpr);
+        CHK(rc == Ok, (void) 0, goto freeExpr);
 
         struct Object *res;
         rc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
@@ -47,14 +48,17 @@ int main(int argc, char *argv[]) {
         freeExpr:
         FreeExpr(&expr);
 
+        CHECK(rc != IoError, "IO error", rv = FailIO, closeFile);
         CHECK(!(rc & RuntimeError), "runtime error", rv = FailRuntime, closeFile);
         CHECK(rc == Ok, "syntax error", rv = FailSyntax, closeFile);
     }
 
     closeFile:
     fclose(f);
+
     freeState:
     FreeState(&state);
+
     exit:
     return rv;
 }

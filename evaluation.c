@@ -1,5 +1,5 @@
 #include "evaluation.h"
-#include "utils/goodies.h"
+#include "utils/new_tools.h"
 #include "utils/error_check_tools.h"
 
 enum OpRetCode GetLazyExprVal(

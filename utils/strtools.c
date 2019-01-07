@@ -3,7 +3,7 @@
 
 #include "strtools.h"
 
-bool ParseInt32(char *str, int32_t *out) {
+bool ParseInt32(const char *str, int32_t *out) {
     const size_t len = strlen(str);
     if (len < 1)
         return false;
@@ -20,6 +20,8 @@ bool ParseInt32(char *str, int32_t *out) {
         if (res > INT32_MAX || (neg && -res < INT32_MIN))
             return false;
     }
+    if (out == NULL)
+        return true;
     if (neg)
         res = -res;
     *out = (int32_t) res;

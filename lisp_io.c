@@ -4,7 +4,7 @@
 #include "lisp_io.h"
 #include "evaluation.h"
 #include "utils/vector.h"
-#include "utils/goodies.h"
+#include "utils/new_tools.h"
 #include "utils/iotools.h"
 #include "utils/strtools.h"
 

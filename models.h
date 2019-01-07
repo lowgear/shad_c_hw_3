@@ -4,21 +4,21 @@
 #include <stdbool.h>
 
 #include "utils/vector.h"
-#include "utils/goodies.h"
+#include "utils/new_tools.h"
 #include "utils/smartptr_tools.h"
 
 enum OpRetCode {
     Ok = 0,
+    eOf,
+    IoError,
     UndefinedArg,
     IdentifierRedefinition,
     SyntaxViolation,
     ArgNumberMismatch,
-    RuntimeError = 1 << 6,
+    RuntimeError = 1 << 7,
     ArgTypeMismatch = RuntimeError,
     AllocationFailure,
     DBZ,
-    eOf,
-    IoError,
     UnknownErr
 };
 

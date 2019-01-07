@@ -4,16 +4,16 @@
 #include "models.h"
 #include "builtins.h"
 
-struct ArgV emptyArgV = {.size = 0, .refCnt = 2};
+struct ArgV emptyArgV = {.size = 0, .refCnt = 1};
 
-struct ArgNames emptyArgNames = {.size = 0, .refCnt = 2};
+struct ArgNames emptyArgNames = {.size = 0, .refCnt = 1};
 
 void FreeExpr(struct Expression **expressionP) {
     struct Expression *expression = *expressionP;
     FREEREF_RET(expression);
     switch (expression->expType) {
         case Call:
-            for (size_t i = 0; i < expression->paramsV->size; ++i) {
+            for (size_t i = 0; i < SIZE(expression->paramsV); ++i) {
                 FreeExpr(&ID(expression->paramsV, i));
             }
             FREE_V(&expression->paramsV);

@@ -16,7 +16,7 @@ struct name { \
 }; \
 
 #define INIT_ARR(v, sz, fallbackAction) do { \
-    (v) = malloc((sizeof(*v) + sizeof((v)->array[0]) * (sz)) - sizeof((v)->array[0]) * (DEFSIZE)); \
+    (v) = (__typeof(v)) malloc((sizeof(*v) + sizeof((v)->array[0]) * (sz)) - sizeof((v)->array[0]) * (DEFSIZE)); \
     if ((v) == NULL) \
         fallbackAction; \
     (v)->size = (sz); \
@@ -29,6 +29,7 @@ struct name { \
             freer(&ID(v, aiter)); \
         free(v); \
     } \
+    v = NULL; \
 } while (0)
 
 #define DEF_VECTOR(name, T) \
@@ -52,7 +53,7 @@ struct name { \
 
 #define INIT_VEC(vec, s, fallbackAction) \
     do { \
-        (vec) = (__typeof(vec))malloc((sizeof((*(vec))) + (s) * sizeof(ID_P(&vec, 0))) - (DEFSIZE) * sizeof(ID_P(&vec, 0))); \
+        (vec) = (__typeof(vec)) malloc((sizeof((*(vec))) + (s) * sizeof(ID_P(&vec, 0))) - (DEFSIZE) * sizeof(ID_P(&vec, 0))); \
         if ((vec) == NULL) \
             fallbackAction; \
         (vec)->size = s; \
