@@ -60,7 +60,7 @@ void FreeObj(struct Object **objectP) {
 
     switch (object->type) {
         case Func:
-            if (!object->function->isUserDefined)
+            if (!object->function->builtIn.isUserDefined)
                 return;
             FreeExpr(&object->function->userDef.body);
 

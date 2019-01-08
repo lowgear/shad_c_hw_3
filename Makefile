@@ -45,7 +45,7 @@ iotools.o: $(SRCD)/utils/iotools.c
 strtools.o: $(SRCD)/utils/strtools.c
 	$(COMPILE_C_SRC)
 
-check: test_main.o gtest-all.o gtest_main.o builtins.o evaluation.o lisp_io.o models.o iotools.o strtools.o \
+check: test_main.o gtest-all.o builtins.o evaluation.o lisp_io.o models.o iotools.o strtools.o \
 endToEnd_tests.o iotools_tests.o models_tests.o strtools_tests.o vector_tests.o
 	$(LINK_EXECUTABLE)
 
@@ -68,9 +68,6 @@ vector_tests.o: $(SRCD)/tests/vector_tests.cpp
 	$(COMPILE_CXX_SRC)
 
 gtest-all.o: $(GTEST)/src/gtest-all.cc
-	$(COMPILE_CXX_SRC)
-
-gtest_main.o: $(GTEST)/src/gtest_main.cc
 	$(COMPILE_CXX_SRC)
 
 TO_DELETE=lisp check

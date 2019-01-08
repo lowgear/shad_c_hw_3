@@ -6,7 +6,7 @@
 #include "smartptr_tools.h"
 
 // useful to set it greater for debug
-#define DEFSIZE 1
+#define DEFSIZE 2
 
 #define DEF_ARRAY(name, T) \
 struct name { \

@@ -1,13 +1,7 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "cert-err58-cpp"
-
 #include "gtest/gtest.h"
 #include "utils/vector.h"
 
 DEF_VECTOR(IntV, int)
-
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "cppcoreguidelines-avoid-goto"
 
 TEST(Vector, Sanity) {
     IntV_Ptr vec;
@@ -33,8 +27,6 @@ TEST(Vector, Sanity) {
     EXPECT_TRUE(false);
 }
 
-#pragma clang diagnostic pop
-
 DEF_ARRAY(IntA, int)
 
 void MakeZero(int *pInt) {
@@ -45,11 +37,11 @@ TEST(Array, Sanity) {
     IntA *intA;
     INIT_ARR(intA, 5, FAIL());
 
-    ASSERT_EQ(SIZE(intA), 5);
+    ASSERT_EQ(SIZE(intA), 5U);
 
     for (size_t i = 0; i < SIZE(intA); ++i) {
         ID(intA, i) = static_cast<int>(i);
-        EXPECT_EQ(ID(intA, i), i);
+        EXPECT_EQ(ID(intA, i), static_cast<int>(i));
     }
 
     IntA *ref;
@@ -59,11 +51,9 @@ TEST(Array, Sanity) {
     EXPECT_EQ(intA, nullptr);
 
     for (size_t i = 0; i < SIZE(ref); ++i) {
-        EXPECT_EQ(ID(ref, i), i);
+        EXPECT_EQ(ID(ref, i), static_cast<int>(i));
     }
 
     FREE_A(ref, MakeZero);
     EXPECT_EQ(ref, nullptr);
 }
-
-#pragma clang diagnostic pop

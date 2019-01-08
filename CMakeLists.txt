@@ -24,7 +24,7 @@ add_executable(shad_c_hw_3
 
 aux_source_directory(tests TEST_SRCS)
 
-add_executable(check
+add_executable(Check
         test_main.cpp
         ${GTEST}/src/gtest-all.cc
         evaluation.c
@@ -36,4 +36,4 @@ add_executable(check
 
         ${TEST_SRCS})
 
-target_link_libraries(check Threads::Threads)
+target_link_libraries(Check Threads::Threads)

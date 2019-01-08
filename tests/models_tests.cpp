@@ -1,6 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "cppcoreguidelines-pro-type-member-init"
-#pragma ide diagnostic ignored "cert-err58-cpp"
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -23,7 +20,7 @@ TEST(FreeFunc, CASE) { \
     CUR_CHECK; \
 }
 
-#define CUR_CHECK EXPECT_EQ(object.refCnt, 1);
+#define CUR_CHECK EXPECT_EQ(object.refCnt, 1U);
 #define CASE DecreaseRefCnt
 
 TEST_FREES
@@ -42,11 +39,11 @@ TEST_FREES
 #undef TEST_FREE
 
 TEST(emptyArgV, refCnt_is_not_0) {
-    EXPECT_GT(emptyArgV.refCnt, 0);
+    EXPECT_GT(emptyArgV.refCnt, 0U);
 }
 
 TEST(emptyArgNames, refCnt_is_not_0) {
-    EXPECT_GT(emptyArgNames.refCnt, 0);
+    EXPECT_GT(emptyArgNames.refCnt, 0U);
 }
 
 TEST(OpRetCode, Types) {
@@ -68,5 +65,3 @@ TEST(OpRetCode, Types) {
 #undef CHECK_IS_RUNTIME_ERR
 #undef CHECK_IS_NOT_RUNTIME_ERR
 }
-
-#pragma clang diagnostic pop

@@ -13,8 +13,8 @@
 #define BUILTIN_DEF(n, idnt, ac) \
 IMPL_HEAD(n); \
 struct Function n##_func = {\
-        .func = n##_impl, \
-        .isUserDefined = NULL, \
+        .builtIn.func = n##_impl, \
+        .builtIn.isUserDefined = NULL, \
         .argc = ac, \
         .name = #idnt \
 }; \
@@ -89,8 +89,8 @@ IMPL_HEAD(function) {
 
 struct Function function_func = {
         .name = "function",
-        .isUserDefined = NULL,
-        .func = function_impl,
+        .builtIn.isUserDefined = NULL,
+        .builtIn.func = function_impl,
         .argc = 0,
 };
 struct Object defineFunc = {
@@ -105,8 +105,8 @@ IMPL_HEAD(variable) {
 
 struct Function variable_func = {
         .name = "variable",
-        .isUserDefined = NULL,
-        .func = function_impl,
+        .builtIn.isUserDefined = NULL,
+        .builtIn.func = function_impl,
         .argc = 0,
 };
 struct Object letFunc = {

@@ -1,6 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "cert-err58-cpp"
-
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -52,5 +49,3 @@ TEST(ParseInt32, CheckFalsePositives) {
     CHECK("123  ");
 #undef CHECK
 }
-
-#pragma clang diagnostic pop
