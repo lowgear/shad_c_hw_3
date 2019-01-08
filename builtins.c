@@ -6,6 +6,7 @@
 #include "evaluation.h"
 #include "utils/new_tools.h"
 #include "impl_goodies.h"
+#include "utils/error_check_tools.h"
 
 #define IMPL_HEAD(name) enum OpRetCode name##_impl(struct ArgV *argv, struct State *state, struct Object **out)
 
@@ -87,10 +88,26 @@ struct Function function_func = {
         .builtIn = function_impl,
         .argc = 0,
 };
-struct Object badFunc = {
+struct Object defineFunc = {
         .type = Func,
         .function = &function_func,
-        .refCnt = 2
+        .refCnt = 1
+};
+
+IMPL_HEAD(variable) {
+    return SyntaxViolation;
+}
+
+struct Function variable_func = {
+        .name = "variable",
+        .isUserDefined = NULL,
+        .builtIn = function_impl,
+        .argc = 0,
+};
+struct Object letFunc = {
+        .type = Func,
+        .function = &variable_func,
+        .refCnt = 1
 };
 
 enum OpRetCode CheckHead(struct Expression *header) {
@@ -115,6 +132,18 @@ enum OpRetCode CheckHead(struct Expression *header) {
         }
     }
     return Ok;
+}
+
+bool IsRedefinition(struct State *state, char *name) {
+    for (size_t i = 0; i < CNT(state->identifiers); ++i) {
+        if (strcmp(name, ID(state->identifiers, i).identifier) == 0)
+            return true;
+    }
+    for (size_t i = 0; i < CNT(state->builtins); ++i) {
+        if (strcmp(name, ID(state->builtins, i).identifier) == 0)
+            return true;
+    }
+    return false;
 }
 
 BUILTIN_DEF(define, define, 2) {
@@ -168,7 +197,7 @@ BUILTIN_DEF(define, define, 2) {
     };
     PUSH_BACK_P(&state->identifiers, iv, goto freeFunc);
 
-    CPYREF(&badFunc, *out);
+    CPYREF(&defineFunc, *out);
 
     return Ok;
 
@@ -183,6 +212,36 @@ BUILTIN_DEF(define, define, 2) {
 
     allocFailure:
     return AllocationFailure;
+}
+
+BUILTIN_DEF(let, let, 2) {
+    enum OpRetCode rc = Ok;
+    GETARGT(val, 1, Int)
+    struct Expression *nameExpr = ID(argv, 0)->expression;
+    CHK(nameExpr->expType == Var
+        && !IsRedefinition(state, nameExpr->var),
+        rc = ArgTypeMismatch, goto freeVal);
+
+    char *name = NEWARR(char, strlen(nameExpr->var) + 1);
+    CHK(name != NULL, rc = AllocationFailure, goto freeVal)
+    strcpy(name, nameExpr->var);
+
+    struct IdentifierValuePair iv = {
+            .identifier = name,
+            .value = val
+    };
+    PUSH_BACK_P(&state->identifiers, iv, goto freeName);
+    CPYREF(&letFunc, *out);
+    goto exit;
+
+    freeName:
+    free(name);
+
+    freeVal:
+    FreeObj(&val);
+
+    exit:
+    return rc;
 }
 
 #define BINOP(name, idft) \
@@ -205,38 +264,26 @@ BINOP(subtraction, -)
 BINOP(multiplication, *)
 
 
-BUILTIN_DEF(division, /, 2) {
-    enum OpRetCode rc;
-    GETARGT(y, 1, Int)
-    if (y->integer == 0) {
-        FreeObj(&y);
-        return DBZ;
-    }
-    GETARGT(x, 0, Int)
-    ALLOCRES
-    res->type = Int;
-    res->integer = x->integer / y->integer;
-    FreeObj(&x);
-    FreeObj(&y);
-    PROPER_END;
+#define DIVOP(name, idft) \
+BUILTIN_DEF(name, idft, 2) { \
+    enum OpRetCode rc; \
+    GETARGT(y, 1, Int) \
+    if (y->integer == 0) { \
+        FreeObj(&y); \
+        return DBZ; \
+    } \
+    GETARGT(x, 0, Int) \
+    ALLOCRES \
+    res->type = Int; \
+    res->integer = x->integer idft y->integer; \
+    FreeObj(&x); \
+    FreeObj(&y); \
+    PROPER_END; \
 }
 
+DIVOP(division, /)
 
-BUILTIN_DEF(modulo, %, 2) {
-    enum OpRetCode rc;
-    GETARGT(y, 1, Int)
-    if (y->integer == 0) {
-        FreeObj(&y);
-        return DBZ;
-    }
-    GETARGT(x, 0, Int)
-    ALLOCRES
-    res->type = Int;
-    res->integer = x->integer % y->integer;
-    FreeObj(&x);
-    FreeObj(&y);
-    PROPER_END;
-}
+DIVOP(modulo, %)
 
 #define CMPOP(name, idft, op) \
 BUILTIN_DEF(name, idft, 2) { \
@@ -280,6 +327,8 @@ struct IdentifierValuePair *BUILTINS[] = {
         &car,
         &cdr,
         &_if,
-        &nul};
+        &nul,
+        &let,
+        /*&lambda*/};
 
 size_t BUILTINS_SIZE = sizeof(BUILTINS) / sizeof(BUILTINS[0]);

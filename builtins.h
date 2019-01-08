@@ -21,7 +21,10 @@ extern struct IdentifierValuePair
 
         _if,
 
-        nul;
+        nul,
+
+        let,
+        lambda;
 
 extern struct IdentifierValuePair *BUILTINS[];
 extern size_t BUILTINS_SIZE;
