@@ -110,7 +110,7 @@ struct Object letFunc = {
         .refCnt = 1
 };
 
-enum OpRetCode CheckHead(struct Expression *header) {
+enum OpRetCode CheckDefineHead(struct State *state, struct Expression *header) {
     if (header->expType != Call)
         return SyntaxViolation;
     const size_t headerLen = header->paramsV->size;
@@ -122,9 +122,13 @@ enum OpRetCode CheckHead(struct Expression *header) {
     struct Expression *const *headArr = header->paramsV->array;
     if (headArr[0]->expType != Var)
         return SyntaxViolation;
+    if (IsRedefinition(state, headArr[0]->var))
+        return IdentifierRedefinition;
     for (size_t i = 1; i < headerLen; ++i) {
         if (headArr[i]->expType != Var)
             return ArgTypeMismatch;
+        if (IsRedefinition(state, headArr[i]->var))
+            return IdentifierRedefinition;
         for (size_t j = i + 1; j < headerLen; ++j) {
             if (strcmp(headArr[i]->var,
                        headArr[j]->var) == 0)
@@ -150,25 +154,30 @@ BUILTIN_DEF(define, define, 2) {
     struct Expression *header = ID(argv, 0)->expression;
     struct Expression *body = ID(argv, 1)->expression;
     enum OpRetCode rc;
-    rc = CheckHead(header);
+    rc = CheckDefineHead(state, header);
     if (rc != Ok)
         return rc;
 
-    char *funcName = NEWARR(char, strlen(ID(header->paramsV, 0)->var) + 1);
-    if (funcName == NULL)
-        return AllocationFailure;
+    char *funcName;
+    TRY_NEWARR(funcName, char, strlen(ID(header->paramsV, 0)->var) + 1, rc = AllocationFailure;
+            goto exit;);
+    char *identifier;
+    TRY_NEWARR(identifier, char, strlen(ID(header->paramsV, 0)->var) + 1, rc = AllocationFailure;
+            goto freeFuncName;);
     strcpy(funcName, ID(header->paramsV, 0)->var);
+    strcpy(identifier, ID(header->paramsV, 0)->var);
 
     struct ArgNames *argNames;
     const uint8_t argc = (const uint8_t) (header->paramsV->size - 1);
-    INIT_ARR(argNames, argc, goto allocFailure);
+    INIT_ARR(argNames, argc, rc = AllocationFailure;
+            goto freeIdentifier;);
     for (size_t i = 1; i < header->paramsV->size; ++i) {
-        ID(argNames, i - 1) = NEWARR(char, strlen(ID(header->paramsV, i)->var) + 1);
-        if (ID(argNames, i - 1) == NULL) goto cleanup;
+        TRY_NEWARR(ID(argNames, i - 1), char, strlen(ID(header->paramsV, i)->var) + 1, goto cleanup;);
         strcpy(ID(argNames, i - 1), ID(header->paramsV, i)->var);
         continue;
 
         cleanup:
+        rc = AllocationFailure;
         for (size_t j = 1; j < i; ++j) {
             free(ID(argNames, i - 1));
         }
@@ -176,7 +185,8 @@ BUILTIN_DEF(define, define, 2) {
     }
 
     struct Function *function;
-    TRY_NEW(function, struct Function, goto freeArgNames);
+    TRY_NEW(function, struct Function, rc = AllocationFailure;
+            goto freeArgNames;);
     *function = (struct Function) {
             .name=funcName,
             .userDef = (struct UserDefFunc) {
@@ -187,15 +197,17 @@ BUILTIN_DEF(define, define, 2) {
     CPYREF(body, function->userDef.body);
 
     struct Object *func;
-    NEWSMRT(func, struct Object, goto freeFunction);
+    NEWSMRT(func, struct Object, rc = AllocationFailure;
+            goto freeFunction;);
     func->type = Func;
     func->function = function;
 
     struct IdentifierValuePair iv = {
-            .identifier = funcName,
+            .identifier = identifier,
             .value = func
     };
-    PUSH_BACK_P(&state->identifiers, iv, goto freeFunc);
+    PUSH_BACK_P(&state->identifiers, iv, rc = AllocationFailure;
+            goto freeFunc;);
 
     CPYREF(&defineFunc, *out);
 
@@ -210,13 +222,19 @@ BUILTIN_DEF(define, define, 2) {
     freeArgNames:
     free(argNames);
 
-    allocFailure:
-    return AllocationFailure;
+    freeIdentifier:
+    free(identifier);
+
+    freeFuncName:
+    free(funcName);
+
+    exit:
+    return rc;
 }
 
 BUILTIN_DEF(let, let, 2) {
     enum OpRetCode rc = Ok;
-    GETARGT(val, 1, Int)
+    GETARG(val, 1)
     struct Expression *nameExpr = ID(argv, 0)->expression;
     CHK(nameExpr->expType == Var
         && !IsRedefinition(state, nameExpr->var),
@@ -239,6 +257,87 @@ BUILTIN_DEF(let, let, 2) {
 
     freeVal:
     FreeObj(&val);
+
+    exit:
+    return rc;
+}
+
+enum OpRetCode CheckLambdaHead(struct State *state, struct Expression *header) {
+    if (header->expType != Call)
+        return SyntaxViolation;
+    const size_t headerLen = header->paramsV->size;
+    if (headerLen < 1)
+        return SyntaxViolation;
+    if (headerLen - 1 > UINT8_MAX)
+        return SyntaxViolation;
+
+    struct Expression *const *headArr = header->paramsV->array;
+    for (size_t i = 0; i < headerLen; ++i) {
+        if (headArr[i]->expType != Var)
+            return ArgTypeMismatch;
+        if (IsRedefinition(state, headArr[i]->var))
+            return IdentifierRedefinition;
+        for (size_t j = i + 1; j < headerLen; ++j) {
+            if (strcmp(headArr[i]->var,
+                       headArr[j]->var) == 0)
+                return IdentifierRedefinition;
+        }
+    }
+    return Ok;
+}
+
+BUILTIN_DEF(lambda, lambda, 2) {
+    struct Expression *header = ID(argv, 0)->expression;
+    struct Expression *body = ID(argv, 1)->expression;
+    enum OpRetCode rc;
+    rc = CheckLambdaHead(state, header);
+    if (rc != Ok)
+        return rc;
+
+    struct ArgNames *argNames;
+    const uint8_t argc = (const uint8_t) (header->paramsV->size);
+    INIT_ARR(argNames, argc, rc = AllocationFailure;
+            goto exit;);
+    for (size_t i = 0; i < SIZE(header->paramsV); ++i) {
+        TRY_NEWARR(ID(argNames, i), char, strlen(ID(header->paramsV, i)->var) + 1, goto cleanup;);
+        strcpy(ID(argNames, i), ID(header->paramsV, i)->var);
+        continue;
+
+        cleanup:
+        rc = AllocationFailure;
+        for (size_t j = 0; j < i; ++j) {
+            free(ID(argNames, i));
+        }
+        goto freeArgNames;
+    }
+
+    struct Function *function;
+    TRY_NEW(function, struct Function, rc = AllocationFailure;
+            goto freeArgNames;);
+    *function = (struct Function) {
+            .name = NULL,
+            .userDef = (struct UserDefFunc) {
+                    .head = argNames
+            },
+            .argc = argc
+    };
+    CPYREF(body, function->userDef.body);
+
+    struct Object *func;
+    NEWSMRT(func, struct Object, rc = AllocationFailure;
+            goto freeFunction;);
+    func->type = Func;
+    func->function = function;
+
+    *out = func;
+
+    return Ok;
+
+    freeFunction:
+    free(function);
+
+    freeArgNames:
+    free(argNames);
 
     exit:
     return rc;
@@ -329,6 +428,6 @@ struct IdentifierValuePair *BUILTINS[] = {
         &_if,
         &nul,
         &let,
-        /*&lambda*/};
+        &lambda};
 
 size_t BUILTINS_SIZE = sizeof(BUILTINS) / sizeof(BUILTINS[0]);

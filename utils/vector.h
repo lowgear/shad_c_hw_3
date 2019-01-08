@@ -18,7 +18,7 @@ struct name { \
 #define INIT_ARR(v, sz, fallbackAction) do { \
     (v) = (__typeof(v)) malloc((sizeof(*v) + sizeof((v)->array[0]) * (sz)) - sizeof((v)->array[0]) * (DEFSIZE)); \
     if ((v) == NULL) \
-        fallbackAction; \
+        do { fallbackAction; } while (0); \
     (v)->size = (sz); \
     REFCNT(v) = 1; \
 } while(0)
@@ -55,7 +55,7 @@ struct name { \
     do { \
         (vec) = (__typeof(vec)) malloc((sizeof((*(vec))) + (s) * sizeof(ID_P(&vec, 0))) - (DEFSIZE) * sizeof(ID_P(&vec, 0))); \
         if ((vec) == NULL) \
-            fallbackAction; \
+            do { fallbackAction; } while (0); \
         (vec)->size = s; \
         (vec)->cnt = 0; \
     } while (0);
@@ -68,7 +68,7 @@ struct name { \
                     malloc(STRUCT_SIZE(**(vecP)) + SIZE_P(vecP) * sizeof(ID_P(vecP, 0))); \
             memcpy(newVec, *(vecP), STRUCT_SIZE(**(vecP))); \
             if (newVec == NULL) \
-                fallbackAction; \
+                do { fallbackAction; } while (0); \
             SIZE(newVec) += SIZE(newVec); \
             free(*(vecP)); \
             *(vecP) = newVec; \

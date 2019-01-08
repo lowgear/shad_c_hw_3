@@ -5,7 +5,7 @@
 #define REFCNT(t) ((t)->refCnt)
 
 #define NEWSMRT(tar, T, onFail) do { \
-    if (((tar) = NEW(T)) == NULL) {onFail;} \
+    if (((tar) = NEW(T)) == NULL) do { onFail; } while (0); \
     else REFCNT(tar) = 1; \
 } while (0)
 
@@ -14,6 +14,6 @@
     ++REFCNT(src); \
 } while (0)
 
-#define FREEREF_RET(t) assert(REFCNT(t)); if (--REFCNT(t) != 0) { *t##P = NULL; return; }
+#define FREEREF_RET(t) assert(REFCNT(t)); if (--REFCNT(t) != 0) do { *t##P = NULL; return; } while (0)
 
 #define IFFREE(t) assert(REFCNT(t)); if (--REFCNT(t) == 0)

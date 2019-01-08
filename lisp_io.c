@@ -28,7 +28,7 @@ enum OpRetCode ReadCall(FILE *file, struct Expression **out) {
         rc = ReadExpression(file, &curExp);
         if (rc != Ok)
             goto freeExprList;
-        PUSH_BACK_P(&exprList, curExp, goto freeCurExpr);
+        PUSH_BACK_P(&exprList, curExp, goto freeCurExpr;);
         continue;
 
         freeCurExpr:
@@ -37,9 +37,9 @@ enum OpRetCode ReadCall(FILE *file, struct Expression **out) {
     }
 
     struct Expression *res;
-    NEWSMRT(res, struct Expression, goto freeExprList);
+    NEWSMRT(res, struct Expression, goto freeExprList;);
     res->expType = Call;
-    INIT_ARR(res->paramsV, CNT(exprList), goto freeCurExpr);
+    INIT_ARR(res->paramsV, CNT(exprList), goto freeCurExpr;);
     for (size_t i = 0; i < exprList->cnt; ++i) {
         res->paramsV->array[i] = ID(exprList, i);
     }

@@ -32,7 +32,7 @@ void FreeExpr(struct Expression **expressionP) {
 bool InitState(struct State *state) {
     INIT_VEC(state->builtins, 1, goto fail);
     for (size_t i = 0; i < BUILTINS_SIZE; ++i) {
-        PUSH_BACK_P(&state->builtins, *BUILTINS[i], goto freeBuiltins);
+        PUSH_BACK_P(&state->builtins, *BUILTINS[i], goto freeBuiltins;);
     }
     INIT_VEC(state->identifiers, 1, goto freeBuiltins);
 
@@ -47,6 +47,7 @@ bool InitState(struct State *state) {
 void FreeState(struct State *state) {
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
         FreeObj(&ID(state->identifiers, i).value);
+        free(ID(state->identifiers, i).identifier);
     }
     FREE_V(&state->identifiers);
 
@@ -67,7 +68,8 @@ void FreeObj(struct Object **objectP) {
                 free(ID(object->function->userDef.head, i));
             }
             free(object->function->userDef.head);
-            free(object->function->name);
+            if (object->function->name != NULL)
+                free(object->function->name);
             free(object->function);
             break;
         case Int:

@@ -16,7 +16,7 @@ enum OpRetCode {
     SyntaxViolation,
     ArgNumberMismatch,
     RuntimeError = 1 << 7,
-    ArgTypeMismatch = RuntimeError,
+    ArgTypeMismatch,
     AllocationFailure,
     DBZ,
     UnknownErr

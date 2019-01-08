@@ -28,3 +28,5 @@ extern struct IdentifierValuePair
 
 extern struct IdentifierValuePair *BUILTINS[];
 extern size_t BUILTINS_SIZE;
+
+static bool IsRedefinition(struct State *state, char *name);
