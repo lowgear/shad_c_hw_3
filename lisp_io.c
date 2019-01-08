@@ -118,7 +118,7 @@ enum OpRetCode ReadExpression(FILE *file, struct Expression **out) {
 enum OpRetCode WriteObject(FILE *file, struct State *state, const struct Object *object) {
     switch (object->type) {
         case Func:
-            fprintf(file, "%s", object->function->name);
+            fprintf(file, "%s", object->function->name ? object->function->name : "<lambda function>");
             break;
         case Int:
             fprintf(file, "%d", object->integer);
