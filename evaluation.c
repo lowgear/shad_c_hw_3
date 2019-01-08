@@ -116,7 +116,7 @@ enum OpRetCode EvalCall(
 
     rc = func->function->isUserDefined
          ? EvalExpr(func->function->userDef.body, callArgV, func->function->userDef.head, state, out)
-         : func->function->builtIn(callArgV, state, out);
+         : func->function->func(callArgV, state, out);
 
     freeCallArgV:
     FREE_A(callArgV, FreeLazyExpr);

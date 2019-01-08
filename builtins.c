@@ -13,7 +13,7 @@
 #define BUILTIN_DEF(n, idnt, ac) \
 IMPL_HEAD(n); \
 struct Function n##_func = {\
-        .builtIn = n##_impl, \
+        .func = n##_impl, \
         .isUserDefined = NULL, \
         .argc = ac, \
         .name = #idnt \
@@ -40,6 +40,11 @@ NEWSMRT(res, struct Object, return AllocationFailure);
     freeRes: \
     FreeObj(&res); \
     return AllocationFailure; \
+} while (0)
+
+#define PROPER_END_NOERR do { \
+    *out = res; \
+    return Ok; \
 } while (0)
 
 BUILTIN_DEF(_if, if, 3) {
@@ -85,7 +90,7 @@ IMPL_HEAD(function) {
 struct Function function_func = {
         .name = "function",
         .isUserDefined = NULL,
-        .builtIn = function_impl,
+        .func = function_impl,
         .argc = 0,
 };
 struct Object defineFunc = {
@@ -101,7 +106,7 @@ IMPL_HEAD(variable) {
 struct Function variable_func = {
         .name = "variable",
         .isUserDefined = NULL,
-        .builtIn = function_impl,
+        .func = function_impl,
         .argc = 0,
 };
 struct Object letFunc = {
@@ -353,7 +358,7 @@ BUILTIN_DEF(name, idft, 2) { \
     res->integer = x->integer idft y->integer; \
     FreeObj(&x); \
     FreeObj(&y); \
-    PROPER_END; \
+    PROPER_END_NOERR; \
 }
 
 BINOP(addition, +)
@@ -377,7 +382,7 @@ BUILTIN_DEF(name, idft, 2) { \
     res->integer = x->integer idft y->integer; \
     FreeObj(&x); \
     FreeObj(&y); \
-    PROPER_END; \
+    PROPER_END_NOERR; \
 }
 
 DIVOP(division, /)
@@ -394,7 +399,7 @@ BUILTIN_DEF(name, idft, 2) { \
     res->integer = (x->integer op y->integer ? 1 : 0); \
     FreeObj(&x); \
     FreeObj(&y); \
-    PROPER_END; \
+    PROPER_END_NOERR; \
 }
 
 CMPOP(less, <, <)

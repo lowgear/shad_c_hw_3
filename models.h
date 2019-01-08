@@ -42,8 +42,8 @@ struct ArgV;
 struct State;
 struct Pair;
 struct LazyExpr;
-DEF_ARRAY(ArgNames, char *);
-DEF_ARRAY(CallParams, struct Expression *);
+DEF_ARRAY(ArgNames, char *)
+DEF_ARRAY(CallParams, struct Expression *)
 
 typedef enum OpRetCode (*BuiltInFunc)(
         struct ArgV *argv,
@@ -69,9 +69,9 @@ struct Function {
     union {
         struct UserDefFunc userDef;
         struct {
-            BuiltInFunc builtIn;
+            BuiltInFunc func;
             void *isUserDefined;
-        };
+        } builtIn;
     };
     char *name;
     uint8_t argc;
@@ -101,7 +101,7 @@ struct LazyExpr {
     REFCNT_DEF;
 };
 
-DEF_ARRAY(ArgV, struct LazyExpr*);
+DEF_ARRAY(ArgV, struct LazyExpr*)
 
 struct IdentifierValuePair {
     char *identifier;
