@@ -49,7 +49,7 @@ struct name { \
 #define ID_P(vec, id) ID(*vec, id)
 #define CNT_P(vec) CNT(*vec)
 #define SIZE_P(vec) SIZE(*vec)
-#define STRUCT_SIZE(vec) (sizeof(vec) + ((vec).size - 1) * sizeof((vec).array[0]))
+#define STRUCT_SIZE(vec) ((sizeof(vec) + (vec).size * sizeof((vec).array[0])) - DEFSIZE * sizeof((vec).array[0]))
 
 #define INIT_VEC(vec, s, fallbackAction) \
     do { \

@@ -65,13 +65,15 @@ struct UserDefFunc {
     struct Expression *body;
 };
 
+struct _ {
+    BuiltInFunc func;
+    void *isUserDefined;
+};
+
 struct Function {
     union {
         struct UserDefFunc userDef;
-        struct {
-            BuiltInFunc func;
-            void *isUserDefined;
-        } builtIn;
+        struct _ builtIn;
     };
     char *name;
     uint8_t argc;

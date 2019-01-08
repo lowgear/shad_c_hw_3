@@ -79,7 +79,11 @@ TEST(EndToEnd, Sanity) {
                 "(let sum (lambda (a b) (+ a b)))\n"
                 "(sum 1 2)\n"
                 "(lambda (a b) (+ a b))\n"
-                "sum";
+                "sum\n"
+                "\n"
+                "(define q +)\n"
+                "q\n"
+                "(q 123 124)";
     const size_t size = 10000;
     char out[size];
     out[size - 1] = '\0';
@@ -127,5 +131,8 @@ TEST(EndToEnd, Sanity) {
                             "variable\n"
                             "3\n"
                             "<lambda function>\n"
-                            "<lambda function>\n") == 0);
+                            "<lambda function>\n"
+                            "function\n"
+                            "+\n"
+                            "247\n") == 0);
 }

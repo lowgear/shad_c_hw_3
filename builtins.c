@@ -116,6 +116,12 @@ struct Object letFunc = {
 };
 
 enum OpRetCode CheckDefineHead(struct State *state, struct Expression *header) {
+    if (header->expType == Var) {
+        if (IsRedefinition(state, header->var))
+            return IdentifierRedefinition;
+        return Ok;
+    }
+
     if (header->expType != Call)
         return SyntaxViolation;
     const size_t headerLen = header->paramsV->size;
@@ -155,14 +161,12 @@ bool IsRedefinition(struct State *state, char *name) {
     return false;
 }
 
-BUILTIN_DEF(define, define, 2) {
-    struct Expression *header = ID(argv, 0)->expression;
-    struct Expression *body = ID(argv, 1)->expression;
+enum OpRetCode DefineFuncImpl(
+        struct Expression *header,
+        struct Expression *body,
+        struct State *state,
+        struct Object **out) {
     enum OpRetCode rc;
-    rc = CheckDefineHead(state, header);
-    if (rc != Ok)
-        return rc;
-
     char *funcName;
     TRY_NEWARR(funcName, char, strlen(ID(header->paramsV, 0)->var) + 1, rc = AllocationFailure;
             goto exit;);
@@ -235,6 +239,55 @@ BUILTIN_DEF(define, define, 2) {
 
     exit:
     return rc;
+}
+
+enum OpRetCode DefineVarImpl(
+        struct Expression *header,
+        struct Expression *body,
+        struct State *state,
+        struct Object **out) {
+    enum OpRetCode rc;
+
+    struct Object *res;
+    rc = EvalExpr(body, &emptyArgV, &emptyArgNames, state, &res);
+    if (rc != Ok)
+        goto exit;
+
+    char *identifier;
+    TRY_NEWARR(identifier, char, strlen(header->var) + 1, rc = AllocationFailure;
+            goto exit;);
+    strcpy(identifier, header->var);
+
+    struct IdentifierValuePair iv = {
+            .identifier = identifier,
+            .value = res
+    };
+
+    PUSH_BACK_P(&state->identifiers, iv, goto freeRes);
+
+    CPYREF(&defineFunc, *out);
+
+    return Ok;
+
+    freeRes:
+    FreeObj(&res);
+
+    exit:
+    return rc;
+}
+
+BUILTIN_DEF(define, define, 2) {
+    struct Expression *header = ID(argv, 0)->expression;
+    struct Expression *body = ID(argv, 1)->expression;
+    enum OpRetCode rc;
+    rc = CheckDefineHead(state, header);
+    if (rc != Ok)
+        return rc;
+
+    if (header->expType == Call) {
+        return DefineFuncImpl(header, body, state, out);
+    }
+    return DefineVarImpl(header, body, state, out);
 }
 
 BUILTIN_DEF(let, let, 2) {
