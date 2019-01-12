@@ -72,6 +72,8 @@ struct _ {
     void *isUserDefined;
 };
 
+#define VARIADIC_ARGS UINT8_MAX
+
 struct Function {
     union {
         struct UserDefFunc userDef;
@@ -80,7 +82,6 @@ struct Function {
     char *name;
     uint8_t argc;
 };
-
 
 struct Pair {
     struct LazyExpr *first;
@@ -109,7 +110,7 @@ DEF_ARRAY(ArgV, struct LazyExpr*)
 
 struct IdentifierValuePair {
     char *identifier;
-    struct Object *value;
+    struct LazyExpr *value;
 };
 
 DEF_VECTOR(IdentifierList, struct IdentifierValuePair)

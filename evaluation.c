@@ -15,38 +15,6 @@ enum OpRetCode GetLazyExprVal(
     return Ok;
 }
 
-enum OpRetCode EvalVarLazy(struct Expression *expr, struct ArgV *argv, struct ArgNames *argNames, struct State *state,
-                           struct LazyExpr **out) {
-    char *name = expr->var;
-    for (size_t i = 0; i < CNT(state->builtins); ++i) {
-        if (strcmp(name, ID(state->builtins, i).identifier) == 0) {
-            NEWSMRT(*out, struct LazyExpr, return AllocationFailure);
-            CPYREF(expr, (*out)->expression);
-            (*out)->argNames = argNames;
-            CPYREF(argv, (*out)->argv);
-            CPYREF(ID(state->builtins, i).value, (*out)->value);
-            return Ok;
-        }
-    }
-    for (size_t i = 0; i < argv->size; ++i) {
-        if (strcmp(name, argNames->array[i]) == 0) {
-            CPYREF(ID(argv, i), *out);
-            return Ok;
-        }
-    }
-    for (size_t i = 0; i < CNT(state->identifiers); ++i) {
-        if (strcmp(name, ID(state->identifiers, i).identifier) == 0) {
-            NEWSMRT(*out, struct LazyExpr, return AllocationFailure);
-            CPYREF(expr, (*out)->expression);
-            (*out)->argNames = argNames;
-            CPYREF(argv, (*out)->argv);
-            CPYREF(ID(state->identifiers, i).value, (*out)->value);
-            return Ok;
-        }
-    }
-    return UndefinedArg;
-}
-
 enum OpRetCode MakeCallArgV(
         struct CallParams *callParams,
         struct ArgV *argv,
@@ -57,19 +25,6 @@ enum OpRetCode MakeCallArgV(
 
     INIT_ARR(*callArgV, callParams->size - 1, return AllocationFailure);
     for (size_t i = 1; i < callParams->size; ++i) {
-        // shortcuts for Vars
-        /*if (ID(callParams, i)->expType == Var) {
-            rc = EvalVarLazy(ID(callParams, i), argv, argNames, state, &ID(*callArgV, i - 1));
-            if (rc != Ok) {
-                for (size_t j = 1; j < i; ++j) {
-                    FreeLazyExpr(&ID(*callArgV, j - 1));
-                }
-                free(*callArgV);
-                return rc;
-            }
-            continue;
-        }*/
-
         NEWSMRT(ID(*callArgV, i - 1), struct LazyExpr, rc = AllocationFailure;
                 goto cleanup);
         struct LazyExpr *cur = ID(*callArgV, i - 1);
@@ -106,7 +61,7 @@ enum OpRetCode EvalCall(
         return rc;
     CHK(func->type == Func, rc = ArgTypeMismatch, goto freeFunc)
 
-    CHK(callParams->size - 1 == func->function->argc,
+    CHK(callParams->size - 1 == func->function->argc || func->function->argc == VARIADIC_ARGS,
         rc = ArgNumberMismatch,
         goto freeFunc)
 
@@ -133,8 +88,7 @@ enum OpRetCode EvalVar(
         struct Object **out) {
     for (size_t i = 0; i < CNT(state->builtins); ++i) {
         if (strcmp(name, ID(state->builtins, i).identifier) == 0) {
-            CPYREF(ID(state->builtins, i).value, *out);
-            return Ok;
+            return GetLazyExprVal(ID(state->builtins, i).value, state, out);
         }
     }
     for (size_t i = 0; i < argv->size; ++i) {
@@ -144,8 +98,7 @@ enum OpRetCode EvalVar(
     }
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
         if (strcmp(name, ID(state->identifiers, i).identifier) == 0) {
-            CPYREF(ID(state->identifiers, i).value, *out);
-            return Ok;
+            return GetLazyExprVal(ID(state->identifiers, i).value, state, out);
         }
     }
     return UndefinedArg;

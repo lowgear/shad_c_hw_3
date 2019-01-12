@@ -28,9 +28,16 @@ struct Object n##_object = { \
         .function = &n##_func, \
         .refCnt = 2 \
 }; \
+struct LazyExpr n##_lz = { \
+    .argNames = NULL, \
+    .argv = NULL, \
+    .expression = NULL, \
+    .value = &n##_object, \
+    .refCnt = 1, \
+}; \
 struct IdentifierValuePair n = { \
         .identifier = #idnt, \
-        .value = &n##_object \
+        .value = &n##_lz \
 }; \
 IMPL_HEAD(n)
 
@@ -107,18 +114,6 @@ struct Object defineFunc = {
 IMPL_HEAD(variable) {
     return SyntaxViolation;
 }
-
-struct Function variable_func = {
-        .name = "variable",
-        .builtIn.isUserDefined = NULL,
-        .builtIn.func = function_impl,
-        .argc = 0,
-};
-struct Object letFunc = {
-        .type = Func,
-        .function = &variable_func,
-        .refCnt = 1
-};
 
 enum OpRetCode CheckDefineHead(struct State *state, struct Expression *header) {
     if (header->expType == Var) {
@@ -217,16 +212,27 @@ enum OpRetCode DefineFuncImpl(
     func->type = Func;
     func->function = function;
 
+    struct LazyExpr *lz;
+    NEWSMRT(lz, struct LazyExpr, rc = AllocationFailure;
+            goto freeFunc);
+    lz->value = func;
+    lz->expression = NULL;
+    lz->argv = NULL;
+    lz->argNames = NULL;
+
     struct IdentifierValuePair iv = {
             .identifier = identifier,
-            .value = func
+            .value = lz
     };
     PUSH_BACK_P(&state->identifiers, iv, rc = AllocationFailure;
-            goto freeFunc;);
+            goto freeLz;);
 
     CPYREF(&defineFunc, *out);
 
     return Ok;
+
+    freeLz:
+    FreeLazyExpr(&lz);
 
     freeFunc:
     free(func);
@@ -253,30 +259,33 @@ enum OpRetCode DefineVarImpl(
         struct State *state,
         struct Object **out) {
     enum OpRetCode rc;
-
-    struct Object *res;
-    rc = EvalExpr(body, &emptyArgV, &emptyArgNames, state, &res);
-    if (rc != Ok)
-        goto exit;
+    struct LazyExpr *lz;
+    NEWSMRT(lz, struct LazyExpr, rc = AllocationFailure;
+            goto exit);
+    CPYREF(body, lz->expression);
+    CPYREF(&emptyArgV, lz->argv);
+    CPYREF(&emptyArgNames, lz->argNames);
+    lz->value = NULL;
 
     char *identifier;
     TRY_NEWARR(identifier, char, strlen(header->var) + 1, rc = AllocationFailure;
-            goto exit;);
+            goto freeLz;);
     strcpy(identifier, header->var);
 
     struct IdentifierValuePair iv = {
             .identifier = identifier,
-            .value = res
+            .value = lz
     };
 
-    PUSH_BACK_P(&state->identifiers, iv, goto freeRes);
+    PUSH_BACK_P(&state->identifiers, iv, rc = AllocationFailure;
+            goto freeLz);
 
     CPYREF(&defineFunc, *out);
 
     return Ok;
 
-    freeRes:
-    FreeObj(&res);
+    freeLz:
+    FreeLazyExpr(&lz);
 
     exit:
     return rc;
@@ -296,34 +305,55 @@ BUILTIN_DEF(define, define, 2) {
     return DefineVarImpl(header, body, state, out);
 }
 
-BUILTIN_DEF(let, let, 2) {
-    enum OpRetCode rc;
-    GETARG(val, 1)
-    struct Expression *nameExpr = ID(argv, 0)->expression;
-    CHK(nameExpr->expType == Var
-        && !IsRedefinition(state, nameExpr->var),
-        rc = ArgTypeMismatch, goto freeVal);
+void ApplyLetDef(char *name, struct Expression *replacement, struct Expression **expr) {
+    if ((*expr)->expType == Var && strcmp((*expr)->var, name) == 0) {
+        FreeExpr(expr);
+        CPYREF(replacement, *expr);
+        return;
+    }
 
-    char *name = NEWARR(char, strlen(nameExpr->var) + 1);
-    CHK(name != NULL, rc = AllocationFailure, goto freeVal)
-    strcpy(name, nameExpr->var);
+    if ((*expr)->expType == Call) {
+        for (size_t i = 0; i < SIZE((*expr)->paramsV); ++i) {
+            ApplyLetDef(name, replacement, &ID((*expr)->paramsV, i));
+        }
+    }
+}
 
-    struct IdentifierValuePair iv = {
-            .identifier = name,
-            .value = val
-    };
-    PUSH_BACK_P(&state->identifiers, iv, goto freeName);
-    CPYREF(&letFunc, *out);
-    goto exit;
+BUILTIN_DEF(let, let, VARIADIC_ARGS) {
+    if (SIZE(argv) < 1)
+        return ArgNumberMismatch;
+    const size_t defNum = SIZE(argv) - 1;
+    for (size_t i = 0; i < defNum; ++i) {
+        struct Expression *const cur = ID(argv, i)->expression;
+        if (cur->expType != Call)
+            return ArgTypeMismatch;
+        if (SIZE(cur->paramsV) != 2)
+            return ArgNumberMismatch;
+        struct Expression *const cur_name = ID(cur->paramsV, 0);
+        if (cur_name->expType != Var)
+            return ArgTypeMismatch;
+        if (IsRedefinition(state, cur_name->var))
+            return IdentifierRedefinition;
+        for (size_t j = 0; j < SIZE(localAN); ++j) {
+            if (strcmp(cur_name->var, ID(localAN, j)) == 0)
+                return IdentifierRedefinition;
+        }
+    }
 
-    freeName:
-    free(name);
+    for (size_t i = 0; i < defNum; ++i) {
+        for (size_t j = i + 1; j < defNum; ++j) {
+            if (strcmp(ID(ID(argv, i)->expression->paramsV, 0)->var,
+                       ID(ID(argv, j)->expression->paramsV, 0)->var) == 0)
+                return IdentifierRedefinition;
+        }
+    }
 
-    freeVal:
-    FreeObj(&val);
+    for (size_t i = 0; i < defNum; ++i) {
+        struct CallParams *cur = ID(argv, i)->expression->paramsV;
+        ApplyLetDef(ID(cur, 0)->var, ID(cur, 1), &ID(argv, defNum)->expression);
+    }
 
-    exit:
-    return rc;
+    return EvalExpr(ID(argv, defNum)->expression, localArgv, localAN, state, out);
 }
 
 enum OpRetCode CheckLambdaHead(struct State *state, struct Expression *header) {
@@ -497,9 +527,13 @@ struct Object NullObject = {
         .type = Null,
         .refCnt = 2
 };
+struct LazyExpr NullLz = {
+        .value = &NullObject,
+        .refCnt = 2
+};
 struct IdentifierValuePair nul = {
         .identifier = "null",
-        .value = &NullObject
+        .value = &NullLz
 };
 
 struct IdentifierValuePair *BUILTINS[] = {

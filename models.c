@@ -46,7 +46,7 @@ bool InitState(struct State *state) {
 
 void FreeState(struct State *state) {
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
-        FreeObj(&ID(state->identifiers, i).value);
+        FreeLazyExpr(&ID(state->identifiers, i).value);
         free(ID(state->identifiers, i).identifier);
     }
     FREE_V(&state->identifiers);
