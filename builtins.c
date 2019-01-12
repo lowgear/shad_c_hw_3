@@ -138,8 +138,6 @@ enum OpRetCode CheckDefineHead(struct State *state, struct Expression *header) {
     for (size_t i = 1; i < headerLen; ++i) {
         if (headArr[i]->expType != Var)
             return ArgTypeMismatch;
-        if (IsRedefinition(state, headArr[i]->var))
-            return IdentifierRedefinition;
         for (size_t j = i + 1; j < headerLen; ++j) {
             if (strcmp(headArr[i]->var,
                        headArr[j]->var) == 0)
@@ -369,8 +367,6 @@ enum OpRetCode CheckLambdaHead(struct State *state, struct Expression *header) {
     for (size_t i = 0; i < headerLen; ++i) {
         if (headArr[i]->expType != Var)
             return ArgTypeMismatch;
-        if (IsRedefinition(state, headArr[i]->var))
-            return IdentifierRedefinition;
         for (size_t j = i + 1; j < headerLen; ++j) {
             if (strcmp(headArr[i]->var,
                        headArr[j]->var) == 0)

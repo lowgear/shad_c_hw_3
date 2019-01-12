@@ -86,14 +86,14 @@ enum OpRetCode EvalVar(
         struct ArgNames *argNames,
         struct State *state,
         struct Object **out) {
-    for (size_t i = 0; i < CNT(state->builtins); ++i) {
-        if (strcmp(name, ID(state->builtins, i).identifier) == 0) {
-            return GetLazyExprVal(ID(state->builtins, i).value, state, out);
-        }
-    }
     for (size_t i = 0; i < argv->size; ++i) {
         if (strcmp(name, argNames->array[i]) == 0) {
             return GetLazyExprVal(argv->array[i], state, out);
+        }
+    }
+    for (size_t i = 0; i < CNT(state->builtins); ++i) {
+        if (strcmp(name, ID(state->builtins, i).identifier) == 0) {
+            return GetLazyExprVal(ID(state->builtins, i).value, state, out);
         }
     }
     for (size_t i = 0; i < CNT(state->identifiers); ++i) {
