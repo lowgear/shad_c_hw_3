@@ -19,7 +19,7 @@ void FreeExpr(struct Expression **expressionP) {
             FREE_V(&expression->paramsV);
             break;
         case Const:
-            FreeObj(&expression->object);
+            FreeLazyExpr(&expression->object);
             break;
         case Var:
             free(expression->var);
@@ -64,10 +64,8 @@ void FreeObj(struct Object **objectP) {
                 return;
             FreeExpr(&object->function->userDef.body);
 
-            for (size_t i = 0; i < SIZE(object->function->userDef.head); ++i) {
-                free(ID(object->function->userDef.head, i));
-            }
-            free(object->function->userDef.head);
+            FREE_A(object->function->userDef.head, SUB_FREE);
+
             if (object->function->name != NULL)
                 free(object->function->name);
             free(object->function);
@@ -91,9 +89,7 @@ void FreeLazyExpr(struct LazyExpr **lazyExprP) {
     struct LazyExpr *lazyExpr = *lazyExprP;
     FREEREF_RET(lazyExpr);
 
-    if (lazyExpr->value != NULL) {
-        FreeObj(&lazyExpr->value);
-    }
+    FreeObj(&lazyExpr->value);
     FREE_A(lazyExpr->argv, FreeLazyExpr);
     FreeExpr(&lazyExpr->expression);
     free(lazyExpr);

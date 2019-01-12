@@ -14,6 +14,6 @@
     ++REFCNT(src); \
 } while (0)
 
-#define FREEREF_RET(t) assert(REFCNT(t)); if (--REFCNT(t) != 0) do { *t##P = NULL; return; } while (0)
+#define FREEREF_RET(t) if (t == NULL) return; assert(REFCNT(t)); if (--REFCNT(t) != 0) do { *t##P = NULL; return; } while (0)
 
 #define IFFREE(t) assert(REFCNT(t)); if (--REFCNT(t) == 0)

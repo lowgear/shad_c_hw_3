@@ -57,11 +57,22 @@ enum OpRetCode ReadCall(FILE *file, struct Expression **out) {
 
 enum OpRetCode HandleReadInt(char *str, int32_t value, struct Expression **out) {
     (*out)->expType = Const;
-    NEWSMRT((*out)->object, struct Object, goto freeOut);
-    (*out)->object->type = Int;
-    (*out)->object->integer = value;
+    struct Object *obj;
+    NEWSMRT(obj, struct Object, goto freeOut);
+    obj->type = Int;
+    obj->integer = value;
+
+    NEWSMRT((*out)->object, struct LazyExpr, goto freeObj);
+    struct LazyExpr *lz = (*out)->object;
+    lz->expression = NULL;
+    lz->argv = NULL;
+    lz->argNames = NULL;
+    lz->value = obj;
     free(str);
     return Ok;
+
+    freeObj:
+    FreeObj(&obj);
 
     freeOut:
     free(*out);

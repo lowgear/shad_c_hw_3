@@ -23,7 +23,10 @@ struct name { \
     REFCNT(v) = 1; \
 } while(0)
 
+#define SUB_FREE(a) free(*(a))
+
 #define FREE_A(v, freer) do { \
+    if (v == NULL) break; \
     IFFREE(v) { \
         for (size_t aiter = 0; aiter < SIZE(v); ++aiter) \
             freer(&ID(v, aiter)); \

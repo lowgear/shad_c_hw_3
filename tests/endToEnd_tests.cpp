@@ -81,6 +81,9 @@ TEST(EndToEnd, Sanity) {
                 "(lambda (a b) (+ a b))\n"
                 "sum\n"
                 "\n"
+                "(define (makeIncr i) (lambda (a) (+ a i)))\n"
+                "((makeIncr 3) 5)\n"
+                "\n"
                 "(define q +)\n"
                 "q\n"
                 "(q 123 124)";
@@ -132,6 +135,8 @@ TEST(EndToEnd, Sanity) {
                             "3\n"
                             "<lambda function>\n"
                             "<lambda function>\n"
+                            "function\n"
+                            "8\n"
                             "function\n"
                             "+\n"
                             "247\n") == 0);

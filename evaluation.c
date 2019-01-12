@@ -116,7 +116,7 @@ enum OpRetCode EvalCall(
 
     rc = func->function->builtIn.isUserDefined
          ? EvalExpr(func->function->userDef.body, callArgV, func->function->userDef.head, state, out)
-         : func->function->builtIn.func(callArgV, state, out);
+         : func->function->builtIn.func(callArgV, state, argv, argNames, out);
 
     freeCallArgV:
     FREE_A(callArgV, FreeLazyExpr);
@@ -161,8 +161,9 @@ enum OpRetCode EvalExpr(
         case Call:
             return EvalCall(expression->paramsV, argv, argNames, state, out);
         case Const:
-            CPYREF(expression->object, *out);
-            return Ok;
+            return GetLazyExprVal(expression->object, state, out);
+//            CPYREF(expression->object, *out); todo
+//            return Ok;
         case Var:
             return EvalVar(expression->var, argv, argNames, state, out);
     }

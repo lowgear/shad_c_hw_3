@@ -48,12 +48,14 @@ DEF_ARRAY(CallParams, struct Expression *)
 typedef enum OpRetCode (*BuiltInFunc)(
         struct ArgV *argv,
         struct State *state,
+        struct ArgV *localArgv,
+        struct ArgNames *localAN,
         struct Object **out);
 
 struct Expression {
     union {
         struct CallParams *paramsV;
-        struct Object *object;
+        struct LazyExpr *object;
         char *var;
     };
     REFCNT_DEF;

@@ -8,7 +8,12 @@
 #include "impl_goodies.h"
 #include "utils/error_check_tools.h"
 
-#define IMPL_HEAD(name) enum OpRetCode name##_impl(struct ArgV *argv, struct State *state, struct Object **out)
+#define IMPL_HEAD(name) enum OpRetCode name##_impl( \
+    struct ArgV *argv, \
+    struct State *state, \
+    struct ArgV *localArgv, \
+    struct ArgNames *localAN, \
+    struct Object **out)
 
 #define BUILTIN_DEF(n, idnt, ac) \
 IMPL_HEAD(n); \
@@ -190,7 +195,8 @@ enum OpRetCode DefineFuncImpl(
         for (size_t j = 1; j < i; ++j) {
             free(ID(argNames, i - 1));
         }
-        goto freeArgNames;
+        free(argNames);
+        goto freeIdentifier;
     }
 
     struct Function *function;
@@ -229,7 +235,7 @@ enum OpRetCode DefineFuncImpl(
     free(function);
 
     freeArgNames:
-    free(argNames);
+    FREE_A(argNames, SUB_FREE);
 
     freeIdentifier:
     free(identifier);
@@ -291,7 +297,7 @@ BUILTIN_DEF(define, define, 2) {
 }
 
 BUILTIN_DEF(let, let, 2) {
-    enum OpRetCode rc = Ok;
+    enum OpRetCode rc;
     GETARG(val, 1)
     struct Expression *nameExpr = ID(argv, 0)->expression;
     CHK(nameExpr->expType == Var
@@ -344,6 +350,29 @@ enum OpRetCode CheckLambdaHead(struct State *state, struct Expression *header) {
     return Ok;
 }
 
+void HandleClosures(struct ArgV *argv, struct ArgNames *argNames, struct Expression *body) {
+    if (body->expType == Const)
+        return;
+    switch (body->expType) {
+        case Call:
+            for (size_t i = 0; i < SIZE(body->paramsV); ++i) {
+                HandleClosures(argv, argNames, ID(body->paramsV, i));
+            }
+            break;
+        case Const:
+            return;
+        case Var:
+            for (size_t i = 0; i < SIZE(argNames); ++i) {
+                if (strcmp(ID(argNames, i), body->var) == 0) {
+                    free(body->var);
+                    body->expType = Const;
+                    CPYREF(ID(argv, i), body->object);
+                }
+            }
+            break;
+    }
+}
+
 BUILTIN_DEF(lambda, lambda, 2) {
     struct Expression *header = ID(argv, 0)->expression;
     struct Expression *body = ID(argv, 1)->expression;
@@ -366,7 +395,8 @@ BUILTIN_DEF(lambda, lambda, 2) {
         for (size_t j = 0; j < i; ++j) {
             free(ID(argNames, i));
         }
-        goto freeArgNames;
+        free(argNames);
+        goto exit;
     }
 
     struct Function *function;
@@ -380,6 +410,8 @@ BUILTIN_DEF(lambda, lambda, 2) {
             .argc = argc
     };
     CPYREF(body, function->userDef.body);
+
+    HandleClosures(localArgv, localAN, body);
 
     struct Object *func;
     NEWSMRT(func, struct Object, rc = AllocationFailure;
@@ -395,7 +427,7 @@ BUILTIN_DEF(lambda, lambda, 2) {
     free(function);
 
     freeArgNames:
-    free(argNames);
+    FREE_A(argNames, SUB_FREE);
 
     exit:
     return rc;
