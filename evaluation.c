@@ -19,7 +19,6 @@ enum OpRetCode MakeCallArgV(
         struct CallParams *callParams,
         struct ArgV *argv,
         struct ArgNames *argNames,
-        struct State *state,
         struct ArgV **callArgV) {
     enum OpRetCode rc;
 
@@ -66,14 +65,13 @@ enum OpRetCode EvalCall(
         goto freeFunc)
 
     struct ArgV *callArgV;
-    rc = MakeCallArgV(callParams, argv, argNames, state, &callArgV);
-    CHK(rc == Ok, (void) 0, goto freeCallArgV);
+    rc = MakeCallArgV(callParams, argv, argNames, &callArgV);
+    CHK(rc == Ok, (void) 0, goto freeFunc);
 
     rc = func->function->builtIn.isUserDefined
          ? EvalExpr(func->function->userDef.body, callArgV, func->function->userDef.head, state, out)
          : func->function->builtIn.func(callArgV, state, argv, argNames, out);
 
-    freeCallArgV:
     FREE_A(callArgV, FreeLazyExpr);
     freeFunc:
     FreeObj(&func);
@@ -115,8 +113,6 @@ enum OpRetCode EvalExpr(
             return EvalCall(expression->paramsV, argv, argNames, state, out);
         case Const:
             return GetLazyExprVal(expression->object, state, out);
-//            CPYREF(expression->object, *out); todo
-//            return Ok;
         case Var:
             return EvalVar(expression->var, argv, argNames, state, out);
     }
