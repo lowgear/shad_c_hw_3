@@ -354,7 +354,7 @@ BUILTIN_DEF(let, let, VARIADIC_ARGS) {
     return EvalExpr(ID(argv, defNum)->expression, localArgv, localAN, state, out);
 }
 
-enum OpRetCode CheckLambdaHead(struct State *state, struct Expression *header) {
+enum OpRetCode CheckLambdaHead(struct Expression *header) {
     if (header->expType != Call)
         return SyntaxViolation;
     const size_t headerLen = header->paramsV->size;
@@ -403,7 +403,7 @@ BUILTIN_DEF(lambda, lambda, 2) {
     struct Expression *header = ID(argv, 0)->expression;
     struct Expression *body = ID(argv, 1)->expression;
     enum OpRetCode rc;
-    rc = CheckLambdaHead(state, header);
+    rc = CheckLambdaHead(header);
     if (rc != Ok)
         return rc;
 
@@ -412,7 +412,7 @@ BUILTIN_DEF(lambda, lambda, 2) {
     INIT_ARR(argNames, argc, rc = AllocationFailure;
             goto exit;);
     for (size_t i = 0; i < SIZE(header->paramsV); ++i) {
-        TRY_NEWARR(ID(argNames, i), char, strlen(ID(header->paramsV, i)->var) + 1, goto cleanup;);
+        TRY_NEWARR(ID(argNames, i), char, strlen(ID(header->paramsV, i)->var) + 1, goto cleanup);
         strcpy(ID(argNames, i), ID(header->paramsV, i)->var);
         continue;
 
