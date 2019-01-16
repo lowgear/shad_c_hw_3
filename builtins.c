@@ -9,11 +9,11 @@
 #include "utils/error_check_tools.h"
 
 #define IMPL_HEAD(name) enum OpRetCode name##_impl( \
+    struct LazyExpr *lz, \
     struct ArgV *argv, \
     struct State *state, \
     struct ArgV *localArgv, \
-    struct ArgNames *localAN, \
-    struct Object **out)
+    struct ArgNames *localAN)
 
 #define BUILTIN_DEF(n, idnt, ac) \
 IMPL_HEAD(n); \
@@ -43,19 +43,19 @@ IMPL_HEAD(n)
 
 #define ALLOCRES \
 struct Object *res; \
-NEWSMRT(res, struct Object, return AllocationFailure);
+NEWSMRT(res, struct Object, return AllocationFailure); // todo
 
 #define PROPER_END do { \
-    *out = res; \
+    lz->value = res; \
     return Ok; \
     \
     freeRes: \
-    FreeObj(&res); \
+    free(res); \
     return AllocationFailure; \
 } while (0)
 
 #define PROPER_END_NOERR do { \
-    *out = res; \
+    lz->value = res; \
     return Ok; \
 } while (0)
 
@@ -63,9 +63,19 @@ BUILTIN_DEF(_if, if, 3) {
     enum OpRetCode rc;
     GETARGT(pred, 0, Int)
 
-    rc = GetLazyExprVal(argv->array[pred->integer ? 1 : 2], state, out);
+    FreeExpr(&lz->expression);
+    FREE_A(lz->argv, FreeLazyExpr);
+    FREE_A(lz->argNames, SUB_FREE);
+
+    struct LazyExpr *const r = ID(argv, pred->integer ? 1 : 2);
+
+    CPYREF(r->expression, lz->expression);
+    CPYREF(r->argv, lz->argv);
+    CPYREF(r->argNames, lz->argNames);
+    CPYREF(r->value, lz->value);
+
     FreeObj(&pred);
-    return rc;
+    return Ok;
 }
 
 BUILTIN_DEF(cons, cons, 2) {
@@ -82,7 +92,7 @@ BUILTIN_DEF(cons, cons, 2) {
 BUILTIN_DEF(car, car, 1) {
     enum OpRetCode rc;
     GETARGT(p, 0, Pair)
-    rc = GetLazyExprVal(p->pair->first, state, out);
+    rc = GetLazyExprVal(p->pair->first, state, &lz->value);
     FreeObj(&p);
     return rc;
 }
@@ -90,7 +100,7 @@ BUILTIN_DEF(car, car, 1) {
 BUILTIN_DEF(cdr, cdr, 1) {
     enum OpRetCode rc;
     GETARGT(p, 0, Pair)
-    rc = GetLazyExprVal(p->pair->second, state, out);
+    rc = GetLazyExprVal(p->pair->second, state, &lz->value);
     FreeObj(&p);
     return rc;
 }
@@ -298,9 +308,9 @@ BUILTIN_DEF(define, define, 2) {
         return rc;
 
     if (header->expType == Call) {
-        return DefineFuncImpl(header, body, state, out);
+        return DefineFuncImpl(header, body, state, &lz->value);
     }
-    return DefineVarImpl(header, body, state, out);
+    return DefineVarImpl(header, body, state, &lz->value);
 }
 
 void ApplyLetDef(char *name, struct Expression *replacement, struct Expression **expr) {
@@ -351,7 +361,7 @@ BUILTIN_DEF(let, let, VARIADIC_ARGS) {
         ApplyLetDef(ID(cur, 0)->var, ID(cur, 1), &ID(argv, defNum)->expression);
     }
 
-    return EvalExpr(ID(argv, defNum)->expression, localArgv, localAN, state, out);
+    return EvalExpr(lz, state);
 }
 
 enum OpRetCode CheckLambdaHead(struct Expression *header) {
@@ -445,7 +455,7 @@ BUILTIN_DEF(lambda, lambda, 2) {
     func->type = Func;
     func->function = function;
 
-    *out = func;
+    lz->value = func;
 
     return Ok;
 

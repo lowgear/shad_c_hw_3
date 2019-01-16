@@ -11,7 +11,8 @@
 
 #define CPYREF(src, dst) do { \
     (dst) = (src); \
-    ++REFCNT(src); \
+    if (src != NULL) \
+        ++REFCNT(src); \
 } while (0)
 
 #define FREEREF_RET(t) if (t == NULL) return; assert(REFCNT(t)); if (--REFCNT(t) != 0) do { *t##P = NULL; return; } while (0)

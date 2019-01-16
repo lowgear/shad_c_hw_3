@@ -10,28 +10,28 @@ extern "C" {
 }
 
 void RunEndToEnd(FILE *in, FILE *out) {
-    State state;
+    State state = {};
     ASSERT_TRUE(InitState(&state));
 
     while (true) {
-        struct Expression *expr;
-        enum OpRetCode rc = ReadExpression(in, &expr);
+        LazyExpr lz = {.refCnt = 1};
+        enum OpRetCode rc = ReadExpression(in, &lz.expression);
         if (rc == eOf) break;
-        CHK(rc == Ok, (void) 0, goto freeExpr);
+        CHK(rc == Ok, (void) 0, goto freeLz);
 
-        struct Object *res;
-        rc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
-        CHK(rc == Ok, (void) 0, goto freeExpr);
+        rc = GetLazyExprVal(&lz, &state, nullptr);
+        CHK(rc == Ok, (void) 0, goto freeLz);
 
-        rc = WriteObject(out, &state, res);
-        CHK(rc == Ok, (void) 0, goto freeObj);
+        rc = WriteObject(out, &state, lz.value);
+        CHK(rc == Ok, (void) 0, goto freeLz);
         fprintf(out, "\n");
-        CHK(!ferror(in), (void) 0, goto freeObj);
+        CHK(!ferror(in), (void) 0, goto freeLz);
 
-        freeObj:
-        FreeObj(&res);
-        freeExpr:
-        FreeExpr(&expr);
+        freeLz:
+        FreeExpr(&lz.expression);
+        FREE_A(lz.argv, FreeLazyExpr);
+        FREE_A(lz.argNames, SUB_FREE);
+        FreeObj(&lz.value);
 
         CHK(rc == Ok, (void) 0, goto freeState);
     }

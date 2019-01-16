@@ -30,24 +30,28 @@ int main(int argc, char *argv[]) {
     CHECK_F(f = fopen(inFile, "r"), "open", inFile, rv, FailOpen, freeState);
 
     while (1) {
-        struct Expression *expr;
-        enum OpRetCode rc = ReadExpression(f, &expr);
+        struct LazyExpr lz = {.refCnt = 1};
+        enum OpRetCode rc = ReadExpression(f, &lz.expression);
         if (rc == eOf) break;
-        CHK(rc == Ok, (void) 0, goto freeExpr);
+        CHK(rc == Ok, (void) 0, goto end);
 
-        struct Object *res;
-        rc = EvalExpr(expr, &emptyArgV, &emptyArgNames, &state, &res);
-        CHK(rc == Ok, (void) 0, goto freeExpr);
+        CPYREF(&emptyArgV, lz.argv);
+        CPYREF(&emptyArgNames, lz.argNames);
 
-        rc = WriteObject(stdout, &state, res);
+        rc = GetLazyExprVal(&lz, &state, NULL);
+        CHK(rc == Ok, (void) 0, goto freeLz);
+
+        rc = WriteObject(stdout, &state, lz.value);
         printf("\n");
-        CHK(rc == Ok, (void) 0, goto freeObj);
+        CHK(rc == Ok, (void) 0, goto freeLz);
 
-        freeObj:
-        FreeObj(&res);
-        freeExpr:
-        FreeExpr(&expr);
+        freeLz:
+        FreeExpr(&lz.expression);
+        FREE_A(lz.argv, FreeLazyExpr);
+        FREE_A(lz.argNames, SUB_FREE);
+        FreeObj(&lz.value);
 
+        end:
         CHECK(rc != IoError, "IO error", rv = FailIO, closeFile);
         CHECK(!(rc & RuntimeError), "runtime error", rv = FailRuntime, closeFile);
         CHECK(rc == Ok, "syntax error", rv = FailSyntax, closeFile);
