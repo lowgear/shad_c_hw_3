@@ -121,7 +121,6 @@ enum OpRetCode EvalVar(struct LazyExpr *lz, struct State *state) {
 }
 
 enum OpRetCode EvalExpr(struct LazyExpr *lz, struct State *state) {
-    enum OpRetCode rc;
     struct LazyExpr *tmp;
     switch (lz->expression->expType) {
         case Call:

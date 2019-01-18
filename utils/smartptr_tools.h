@@ -10,8 +10,7 @@
 } while (0)
 
 #define CPYREF(src, dst) do { \
-    (dst) = (src); \
-    if (src != NULL) \
+    if (((dst) = (src)) != NULL) \
         ++REFCNT(src); \
 } while (0)
 
