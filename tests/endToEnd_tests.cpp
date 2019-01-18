@@ -14,11 +14,14 @@ void RunEndToEnd(FILE *in, FILE *out) {
     ASSERT_TRUE(InitState(&state));
 
     while (true) {
-        LazyExpr lz = {.refCnt = 1};
+        LazyExpr lz = {};
+        lz.refCnt = 1;
         enum OpRetCode rc = ReadExpression(in, &lz.expression);
         if (rc == eOf) break;
         CHK(rc == Ok, (void) 0, goto freeLz);
 
+        CPYREF(&emptyArgV, lz.argv);
+        CPYREF(&emptyArgNames, lz.argNames);
         rc = GetLazyExprVal(&lz, &state, nullptr);
         CHK(rc == Ok, (void) 0, goto freeLz);
 
@@ -138,4 +141,24 @@ TEST(EndToEnd, Sanity) {
                             "function\n"
                             "+\n"
                             "247\n") == 0);
+}
+
+TEST(EndToEnd, TailRecursion) {
+    char in[] = "(define (a i n) (if (< i n) (a (+ i 1) n) i))\n"
+                "(a 0 100000)";
+    const size_t size = 10000;
+    char out[size];
+    out[size - 1] = '\0';
+
+    FILE *inFile = fmemopen(in, sizeof(in), "r");
+    ASSERT_NE(inFile, nullptr);
+    FILE *outFile = fmemopen(out, size, "w");
+    RunEndToEnd(inFile, outFile);
+    ASSERT_EQ(fclose(inFile), 0);
+    ASSERT_EQ(fclose(outFile), 0);
+
+    ASSERT_EQ(out[size - 1], '\0');
+
+    EXPECT_TRUE(strcmp(out, "function\n"
+                            "100000\n") == 0);
 }

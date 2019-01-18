@@ -334,12 +334,12 @@ BUILTIN_DEF(let, let, VARIADIC_ARGS) {
     for (size_t i = 0; i < defNum; ++i) {
         struct Expression *const cur = ID(argv, i)->expression;
         if (cur->expType != Call)
-            return ArgTypeMismatch;
+            return SyntaxViolation;
         if (SIZE(cur->paramsV) != 2)
             return ArgNumberMismatch;
         struct Expression *const cur_name = ID(cur->paramsV, 0);
         if (cur_name->expType != Var)
-            return ArgTypeMismatch;
+            return SyntaxViolation;
         if (IsRedefinition(state, cur_name->var))
             return IdentifierRedefinition;
         for (size_t j = 0; j < SIZE(localAN); ++j) {
@@ -361,7 +361,21 @@ BUILTIN_DEF(let, let, VARIADIC_ARGS) {
         ApplyLetDef(ID(cur, 0)->var, ID(cur, 1), &ID(argv, defNum)->expression);
     }
 
-    return EvalExpr(lz, state);
+    struct LazyExpr *tmp;
+    CPYREF(ID(argv, defNum), tmp);
+    FreeExpr(&lz->expression);
+    FREE_A(lz->argv, FreeLazyExpr);
+    FREE_A(lz->argNames, SUB_FREE);
+    FreeObj(&lz->value);
+
+    CPYREF(tmp->expression, lz->expression);
+    CPYREF(tmp->argv, lz->argv);
+    CPYREF(tmp->argNames, lz->argNames);
+    CPYREF(tmp->value, lz->value);
+
+    FreeLazyExpr(&tmp);
+
+    return Ok;
 }
 
 enum OpRetCode CheckLambdaHead(struct Expression *header) {

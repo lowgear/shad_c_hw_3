@@ -30,7 +30,7 @@ enum OpRetCode MakeCallArgV(
         struct LazyExpr *cur = ID(*callArgV, i - 1);
         CPYREF(ID(callParams, i), cur->expression);
         CPYREF(argv, cur->argv);
-        cur->argNames = argNames;
+        CPYREF(argNames, cur->argNames);
         cur->value = NULL;
 
         continue;
@@ -53,18 +53,18 @@ enum OpRetCode EvalCall(struct LazyExpr *lz, struct State *state) {
         return SyntaxViolation;
 
     enum OpRetCode rc;
-    struct LazyExpr funcLz = {
-            .expression = ID(callParams, 0),
-            .argv = argv,
-            .argNames = argNames,
-            .refCnt = 1
-    };
+    struct LazyExpr *funcLz;
+    NEWSMRT(funcLz, struct LazyExpr, return AllocationFailure);
+    CPYREF(ID(callParams, 0), funcLz->expression);
+    CPYREF(argv, funcLz->argv);
+    CPYREF(argNames, funcLz->argNames);
+    funcLz->value = NULL;
+
     struct Object *func;
-    rc = GetLazyExprVal(&funcLz, state, &func);
+    rc = GetLazyExprVal(funcLz, state, &func);
+    FreeLazyExpr(&funcLz);
     if (rc != Ok)
         return rc;
-    FreeObj(&funcLz.value);
-    funcLz = (struct LazyExpr) {};
 
     CHK(func->type == Func, rc = ArgTypeMismatch, goto freeFunc)
 
@@ -122,28 +122,25 @@ enum OpRetCode EvalVar(struct LazyExpr *lz, struct State *state) {
 
 enum OpRetCode EvalExpr(struct LazyExpr *lz, struct State *state) {
     enum OpRetCode rc;
+    struct LazyExpr *tmp;
     switch (lz->expression->expType) {
         case Call:
             return EvalCall(lz, state);
         case Const:
-            rc = EvalExpr(lz->expression->object, state);
-            if (rc == Ok) {
-                struct LazyExpr *tmp;
-                CPYREF(lz->expression->object, tmp);
+            CPYREF(lz->expression->object, tmp);
 
-                FreeExpr(&lz->expression);
-                FREE_A(lz->argv, FreeLazyExpr);
-                FREE_A(lz->argNames, SUB_FREE);
+            FreeExpr(&lz->expression);
+            FREE_A(lz->argv, FreeLazyExpr);
+            FREE_A(lz->argNames, SUB_FREE);
 
-                CPYREF(tmp->expression, lz->expression);
-                CPYREF(tmp->argv, lz->argv);
-                CPYREF(tmp->argNames, lz->argNames);
-                if (tmp->value != NULL)
-                    CPYREF(tmp->value, lz->value);
-                else
-                    lz->value = NULL;
-            }
-            return rc;
+            CPYREF(tmp->expression, lz->expression);
+            CPYREF(tmp->argv, lz->argv);
+            CPYREF(tmp->argNames, lz->argNames);
+            CPYREF(tmp->value, lz->value);
+
+            FreeLazyExpr(&tmp);
+
+            return Ok;
         case Var:
             return EvalVar(lz, state);
     }

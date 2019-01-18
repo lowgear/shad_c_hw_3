@@ -89,9 +89,34 @@ void FreeLazyExpr(struct LazyExpr **lazyExprP) {
     struct LazyExpr *lazyExpr = *lazyExprP;
     FREEREF_RET(lazyExpr);
 
-    FreeObj(&lazyExpr->value);
-    FREE_A(lazyExpr->argv, FreeLazyExpr);
-    FreeExpr(&lazyExpr->expression);
-    free(lazyExpr);
+    FREE_A(lazyExpr->argNames, SUB_FREE);
+    struct LazyExpr *freeingHead = lazyExpr;
+
+    for (struct LazyExpr *i = lazyExpr; i != NULL; i = (struct LazyExpr *) i->argNames) {
+        if (i->argv == NULL || --REFCNT(i->argv) != 0) {
+            i->argv = NULL;
+            continue;
+        }
+        for (size_t j = 0; j < SIZE(i->argv); ++j) {
+            if (--REFCNT(ID(i->argv, j)) == 0) {
+                freeingHead =
+                        (struct LazyExpr *) (
+                                freeingHead->argNames = (struct ArgNames *) ID(i->argv, j));
+                FREE_A(freeingHead->argNames, SUB_FREE);
+            }
+        }
+    }
+
+    while (lazyExpr != NULL) {
+        FreeExpr(&lazyExpr->expression);
+        FreeObj(&lazyExpr->value);
+        if (lazyExpr->argv != NULL && REFCNT(lazyExpr->argv) == 0)
+            free(lazyExpr->argv);
+
+        struct LazyExpr *const next = (struct LazyExpr *const) lazyExpr->argNames;
+        free(lazyExpr);
+        lazyExpr = next;
+    }
+
     *lazyExprP = NULL;
 }
